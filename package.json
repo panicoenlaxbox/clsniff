@@ -1,0 +1,28 @@
+{
+  "name": "clsniff",
+  "version": "1.0.0",
+  "description": "Zero-configuration HTTP/HTTPS traffic sniffer for command-line tools",
+  "bin": {
+    "clsniff": "./dist/cli.js"
+  },
+  "main": "./dist/cli.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["http", "proxy", "mitm", "logger", "traffic", "intercept", "claude"],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^13.1.0",
+    "http-mitm-proxy": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
