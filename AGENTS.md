@@ -1,0 +1,1 @@
+All code, comments, and documentation must be written in English.
