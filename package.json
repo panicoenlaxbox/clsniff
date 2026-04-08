@@ -1,6 +1,6 @@
 {
   "name": "clsniff",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Zero-configuration HTTP/HTTPS traffic sniffer for command-line tools",
   "bin": {
     "clsniff": "./dist/cli.js"

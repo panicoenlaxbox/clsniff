@@ -144,12 +144,8 @@ async function main(): Promise<void> {
       onError: (url, kind, message) =>
         log(`proxy error [${kind}] on ${url}: ${message}`),
       onEntry: (method, url, status) => {
-        try {
-          const { origin, pathname } = new URL(url);
-          log(`entry: ${method} ${origin}${pathname} → ${status}`);
-        } catch {
-          log(`entry: ${method} ${url} → ${status}`);
-        }
+        const { origin, pathname } = new URL(url);
+        log(`entry: ${method} ${origin}${pathname} ${status}`);
       },
     });
   } catch (err) {
