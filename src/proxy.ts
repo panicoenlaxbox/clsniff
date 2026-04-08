@@ -29,6 +29,8 @@ export interface ProxyOptions {
   excludes: RegExp[];
   /** Called on proxy errors so the caller can route them to a log file. */
   onError?: (url: string, kind: string, message: string) => void;
+  /** Called after each entry is written, with the method, URL and response status. */
+  onEntry?: (method: string, url: string, status: number) => void;
   /**
    * Directory for CA certificate storage. Defaults to ~/.clsniff.
    * Override in tests to use a temporary directory.
@@ -56,7 +58,7 @@ interface SseEvent {
   id?: string;
 }
 
-interface LogEntry {
+interface Entry {
   id: number;
   timestamp: string;
   duration_ms: number;
@@ -216,11 +218,11 @@ function normalizeHeaders(
 }
 
 /**
- * Writes a log entry as a formatted JSON file.
+ * Writes a request/response entry as a formatted JSON file.
  * Filename: NNNN.json (zero-padded sequential ID).
  * Errors are printed to stderr but do not throw.
  */
-function writeLog(sessionDir: string, entry: LogEntry): void {
+function writeEntry(sessionDir: string, entry: Entry): void {
   const filename = path.join(
     sessionDir,
     String(entry.id).padStart(4, "0") + ".json"
@@ -450,7 +452,7 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
             );
 
             const id = ++requestCounter;
-            const entry: LogEntry = {
+            const entry: Entry = {
               id,
               timestamp: new Date().toISOString(),
               duration_ms: Date.now() - startTime,
@@ -483,7 +485,8 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
               },
             };
 
-            writeLog(options.sessionDir, entry);
+            writeEntry(options.sessionDir, entry);
+            options.onEntry?.(entry.request.method, entry.request.url, entry.response.status);
           } catch (err) {
             process.stderr.write(
               `[clsniff] error processing response for ${fullUrl}: ${err}\n`
@@ -502,34 +505,34 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     // otherwise let EADDRINUSE crash the process as an uncaughtException.
     const checkPort = options.port
       ? new Promise<void>((res, rej) => {
-          const tester = net.createServer();
-          tester.once("error", (err: NodeJS.ErrnoException) => {
-            rej(
-              err.code === "EADDRINUSE"
-                ? new Error(`Port ${options.port} is already in use`)
-                : err
-            );
-          });
-          tester.listen(options.port, "127.0.0.1", () => tester.close(() => res()));
-        })
+        const tester = net.createServer();
+        tester.once("error", (err: NodeJS.ErrnoException) => {
+          rej(
+            err.code === "EADDRINUSE"
+              ? new Error(`Port ${options.port} is already in use`)
+              : err
+          );
+        });
+        tester.listen(options.port, "127.0.0.1", () => tester.close(() => res()));
+      })
       : Promise.resolve();
 
     checkPort.then(() => {
-    // Explicitly bind to IPv4 loopback to avoid IPv6/IPv4 mismatches on Windows
-    const listenOptions: Parameters<typeof proxy.listen>[0] = {
-      port: options.port ?? 0,
-      host: "127.0.0.1",
-      sslCaDir,
-      ...(options.proxyHttpsAgent && { httpsAgent: options.proxyHttpsAgent }),
-    };
-    proxy.listen(listenOptions, () => {
-      resolve({
-        port: proxy.httpPort,
-        caPath,
-        caIsNew,
-        close: () => proxy.close(),
+      // Explicitly bind to IPv4 loopback to avoid IPv6/IPv4 mismatches on Windows
+      const listenOptions: Parameters<typeof proxy.listen>[0] = {
+        port: options.port ?? 0,
+        host: "127.0.0.1",
+        sslCaDir,
+        ...(options.proxyHttpsAgent && { httpsAgent: options.proxyHttpsAgent }),
+      };
+      proxy.listen(listenOptions, () => {
+        resolve({
+          port: proxy.httpPort,
+          caPath,
+          caIsNew,
+          close: () => proxy.close(),
+        });
       });
-    });
     }, reject);
   });
 }

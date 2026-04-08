@@ -90,12 +90,13 @@ async function main(): Promise<void> {
     exclude: RegExp[];
   }>();
 
-  // Suppress http-mitm-proxy's internal console output.
-  // The child process uses stdio: 'inherit' and writes directly to the terminal,
-  // so this only affects the parent clsniff process.
-  console.debug = () => {};
-  console.log = () => {};
-  console.error = () => {};
+  // Silence all console output from third-party libraries.
+  // The child process uses stdio: 'inherit', so any console output from the
+  // parent would be interleaved with the child's output.
+  for (const key of Object.keys(console)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (typeof (console as any)[key] === "function") (console as any)[key] = () => {};
+  }
 
   const positional = program.args;
   if (!positional.length) {
@@ -142,10 +143,14 @@ async function main(): Promise<void> {
       excludes: opts.exclude,
       onError: (url, kind, message) =>
         log(`proxy error [${kind}] on ${url}: ${message}`),
+      onEntry: (method, url, status) =>
+        log(`entry: ${method} ${url} → ${status}`),
     });
   } catch (err) {
+    log(`failed to start proxy: ${err}`);
     process.stderr.write(`[clsniff] failed to start proxy: ${err}\n`);
-    process.exit(1);
+    logStream.end(() => process.exit(1));
+    return;
   }
 
   if (proxyHandle.caIsNew) {
