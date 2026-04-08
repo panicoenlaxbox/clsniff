@@ -77,8 +77,6 @@ interface Entry {
   };
 }
 
-let requestCounter = 0;
-
 /**
  * Returns a copy of the headers object with sensitive header values replaced by "***".
  * Matching is case-insensitive. The original object and actual HTTP traffic are not affected.
@@ -242,6 +240,7 @@ function writeEntry(sessionDir: string, entry: Entry): void {
  */
 export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
   return new Promise((resolve, reject) => {
+    let requestCounter = 0;
     const proxy = new Proxy();
     const sslCaDir = options.sslCaDir ?? path.join(os.homedir(), ".clsniff");
 
@@ -444,12 +443,11 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
 
             const reqContentType =
               ctx.clientToProxyRequest.headers["content-type"] ?? "";
-            const requestBody = parseBody(
+            const requestBody =
               typeof reqContentType === "string" &&
-                reqContentType.includes("application/x-www-form-urlencoded")
-                ? reqBodyStr
-                : reqBodyStr
-            );
+              reqContentType.includes("application/x-www-form-urlencoded")
+                ? Object.fromEntries(new URLSearchParams(reqBodyStr))
+                : parseBody(reqBodyStr);
 
             const id = ++requestCounter;
             const entry: Entry = {

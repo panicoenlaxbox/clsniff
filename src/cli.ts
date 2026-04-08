@@ -13,7 +13,7 @@ program
   .description(
     "Wrap any console command and intercept its HTTP/HTTPS traffic, saving each request/response pair as a JSON file."
   )
-  .version("1.0.0")
+  .version("1.0.3")
   .argument("<command>", "Command to run (after --)")
   .argument("[args...]", "Arguments forwarded to the command")
   .option(
