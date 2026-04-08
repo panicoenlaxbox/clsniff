@@ -1,5 +1,10 @@
 # clsniff
 
+[![CI](https://github.com/panicoenlaxbox/clsniff/actions/workflows/ci.yml/badge.svg)](https://github.com/panicoenlaxbox/clsniff/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/clsniff)](https://www.npmjs.com/package/clsniff)
+[![license](https://img.shields.io/npm/l/clsniff)](https://opensource.org/licenses/MIT)
+[![node](https://img.shields.io/node/v/clsniff)](https://nodejs.org/)
+
 A zero-configuration HTTP/HTTPS traffic sniffer for command-line tools.
 
 Wrap any command with `clsniff` and every HTTP/HTTPS request it makes will be captured and saved to a JSON file — including full request/response headers, bodies, and SSE streaming events.
@@ -19,6 +24,21 @@ When a request passes through the proxy, `clsniff`:
 5. Writes a JSON file with both sides of the exchange
 
 The child process is completely unaware of the interception. Its `stdin`, `stdout`, and `stderr` are passed through directly.
+
+## Getting started
+
+Requires Node.js 22 or later.
+
+```bash
+# Run without installing
+npx clsniff -- curl https://httpbin.org/get
+
+# Or install globally
+npm install -g clsniff
+clsniff -- curl https://httpbin.org/get
+```
+
+Intercepted requests are saved to `~/.clsniff/logs/` as numbered JSON files, one per request/response pair.
 
 ## Usage
 
