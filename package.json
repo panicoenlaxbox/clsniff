@@ -23,6 +23,10 @@
     "anthropic"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/panicoenlaxbox/clsniff.git"
+  },
   "dependencies": {
     "commander": "^13.1.0",
     "http-mitm-proxy": "^1.1.0"
