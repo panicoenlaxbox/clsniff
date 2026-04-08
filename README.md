@@ -158,8 +158,3 @@ cd clsniff
 npm install
 npm link # makes `clsniff` available globally
 ```
-
-```bash
-npm run dev -- -- curl https://httpbin.org/get # run without building
-npm run build # compile to dist/
-```
