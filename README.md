@@ -31,7 +31,7 @@ Requires Node.js 22 or later.
 
 ```bash
 # Run without installing
-npx -y clsniff --merge-sse claude
+npx -y clsniff@latest --merge-sse claude
 
 # Or install globally
 npm install -g clsniff
