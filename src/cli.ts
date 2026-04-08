@@ -143,8 +143,14 @@ async function main(): Promise<void> {
       excludes: opts.exclude,
       onError: (url, kind, message) =>
         log(`proxy error [${kind}] on ${url}: ${message}`),
-      onEntry: (method, url, status) =>
-        log(`entry: ${method} ${url} → ${status}`),
+      onEntry: (method, url, status) => {
+        try {
+          const { origin, pathname } = new URL(url);
+          log(`entry: ${method} ${origin}${pathname} → ${status}`);
+        } catch {
+          log(`entry: ${method} ${url} → ${status}`);
+        }
+      },
     });
   } catch (err) {
     log(`failed to start proxy: ${err}`);

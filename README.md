@@ -31,11 +31,11 @@ Requires Node.js 22 or later.
 
 ```bash
 # Run without installing
-npx clsniff -- curl https://httpbin.org/get
+npx -y clsniff --merge-sse claude
 
 # Or install globally
 npm install -g clsniff
-clsniff -- curl https://httpbin.org/get
+clsniff --merge-sse claude
 ```
 
 Intercepted requests are saved to `~/.clsniff/logs/` as numbered JSON files, one per request/response pair.
