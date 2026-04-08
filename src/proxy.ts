@@ -29,6 +29,16 @@ export interface ProxyOptions {
   excludes: RegExp[];
   /** Called on proxy errors so the caller can route them to a log file. */
   onError?: (url: string, kind: string, message: string) => void;
+  /**
+   * Directory for CA certificate storage. Defaults to ~/.clsniff.
+   * Override in tests to use a temporary directory.
+   */
+  sslCaDir?: string;
+  /**
+   * Custom https.Agent used for proxy-to-target HTTPS connections.
+   * Pass an agent with rejectUnauthorized: false in tests that use self-signed target certs.
+   */
+  proxyHttpsAgent?: import("https").Agent;
 }
 
 export interface ProxyHandle {
@@ -71,7 +81,7 @@ let requestCounter = 0;
  * Returns a copy of the headers object with sensitive header values replaced by "***".
  * Matching is case-insensitive. The original object and actual HTTP traffic are not affected.
  */
-function maskHeaders(
+export function maskHeaders(
   headers: Record<string, string | string[] | undefined>,
   masked: string[]
 ): Record<string, string | string[] | undefined> {
@@ -90,7 +100,7 @@ function maskHeaders(
  * Attempts to JSON-parse a string. Returns the parsed value on success, or the original
  * string on failure. Returns null for empty/whitespace-only input.
  */
-function parseBody(raw: string): unknown {
+export function parseBody(raw: string): unknown {
   if (!raw.trim()) {
     return null;
   }
@@ -107,7 +117,7 @@ function parseBody(raw: string): unknown {
  * Supports `event:`, `data:`, and `id:` fields.
  * `data:` values are JSON-parsed individually when possible.
  */
-function parseSseEvents(raw: string): SseEvent[] {
+export function parseSseEvents(raw: string): SseEvent[] {
   const events: SseEvent[] = [];
   const blocks = raw.split(/\n{2,}/);
 
@@ -148,7 +158,7 @@ function parseSseEvents(raw: string): SseEvent[] {
  * Understands the Anthropic API delta format (content_block_delta with delta.text).
  * Falls back to raw data concatenation for unknown formats.
  */
-function mergeSseBody(events: SseEvent[]): string {
+export function mergeSseBody(events: SseEvent[]): string {
   const parts: string[] = [];
 
   for (const evt of events) {
@@ -170,6 +180,7 @@ function mergeSseBody(events: SseEvent[]): string {
       }
     }
 
+    // Canonical SSE: data is a plain string (e.g. OpenAI, plain-text streams)
     if (typeof data === "string" && data !== "[DONE]") {
       parts.push(data);
     }
@@ -230,7 +241,7 @@ function writeLog(sessionDir: string, entry: LogEntry): void {
 export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
   return new Promise((resolve, reject) => {
     const proxy = new Proxy();
-    const sslCaDir = path.join(os.homedir(), ".clsniff");
+    const sslCaDir = options.sslCaDir ?? path.join(os.homedir(), ".clsniff");
 
     // Detect if CA cert already exists before starting (to show first-run message)
     const caPath = path.join(sslCaDir, "certs", "ca.pem");
@@ -505,7 +516,13 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
 
     checkPort.then(() => {
     // Explicitly bind to IPv4 loopback to avoid IPv6/IPv4 mismatches on Windows
-    proxy.listen({ port: options.port ?? 0, host: "127.0.0.1", sslCaDir }, () => {
+    const listenOptions: Parameters<typeof proxy.listen>[0] = {
+      port: options.port ?? 0,
+      host: "127.0.0.1",
+      sslCaDir,
+      ...(options.proxyHttpsAgent && { httpsAgent: options.proxyHttpsAgent }),
+    };
+    proxy.listen(listenOptions, () => {
       resolve({
         port: proxy.httpPort,
         caPath,

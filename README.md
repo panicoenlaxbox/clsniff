@@ -32,7 +32,7 @@ The `--` separator is required to separate `clsniff` options from the wrapped co
 
 | Flag | Description | Default |
 |---|---|---|
-| `--merge-sse` | Merge SSE event data into a single body string | (disabled — keeps events as array) |
+| `--merge-sse` | Merge SSE event data into a single body string. Understands the Anthropic API streaming format (`content_block_delta`) natively; falls back to plain string concatenation for other providers. | (disabled — keeps events as array) |
 | `--output-dir <path>` | Directory where session log folders are created | `~/.clsniff/logs` |
 | `--name <name>` | Name for the session folder instead of the auto-generated timestamp | (timestamp) |
 | `--port <number>` | Port for the local proxy (0 = OS auto-assign) | `0` |

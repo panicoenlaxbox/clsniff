@@ -9,9 +9,19 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
+    "test": "vitest run",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["http", "proxy", "mitm", "logger", "traffic", "intercept", "claude"],
+  "keywords": [
+    "http",
+    "proxy",
+    "mitm",
+    "logger",
+    "traffic",
+    "intercept",
+    "claude",
+    "anthropic"
+  ],
   "license": "MIT",
   "dependencies": {
     "commander": "^13.1.0",
@@ -20,7 +30,8 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.3"
   },
   "engines": {
     "node": ">=22.0.0"
