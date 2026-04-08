@@ -31,8 +31,9 @@ program
     "Port for the local proxy (default: 0 = OS auto-assign)",
     (value: string) => {
       const n = parseInt(value, 10);
-      if (isNaN(n) || n < 0 || n > 65535)
+      if (isNaN(n) || n < 0 || n > 65535) {
         throw new InvalidArgumentError("Port must be 0-65535.");
+      }
       return n;
     },
     0
@@ -97,7 +98,7 @@ async function main(): Promise<void> {
   console.error = () => {};
 
   const positional = program.args;
-  if (positional.length === 0) {
+  if (!positional.length) {
     process.stderr.write("[clsniff] error: no command provided.\n");
     program.help();
     process.exit(1);
@@ -111,7 +112,7 @@ async function main(): Promise<void> {
 
   if (opts.name && fs.existsSync(sessionDir)) {
     const entries = fs.readdirSync(sessionDir);
-    if (entries.length > 0) {
+    if (entries.length) {
       process.stderr.write(
         `[clsniff] session "${opts.name}" already exists and is not empty. Choose a different name or remove the folder.\n`
       );

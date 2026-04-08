@@ -75,7 +75,9 @@ function maskHeaders(
   headers: Record<string, string | string[] | undefined>,
   masked: string[]
 ): Record<string, string | string[] | undefined> {
-  if (masked.length === 0) return headers;
+  if (!masked.length) {
+    return headers;
+  }
   const lower = masked.map((h) => h.toLowerCase());
   const result: Record<string, string | string[] | undefined> = {};
   for (const [key, value] of Object.entries(headers)) {
@@ -89,7 +91,9 @@ function maskHeaders(
  * string on failure. Returns null for empty/whitespace-only input.
  */
 function parseBody(raw: string): unknown {
-  if (!raw.trim()) return null;
+  if (!raw.trim()) {
+    return null;
+  }
   try {
     return JSON.parse(raw);
   } catch {
@@ -123,7 +127,7 @@ function parseSseEvents(raw: string): SseEvent[] {
       }
     }
 
-    if (Object.keys(evt).length > 0) {
+    if (Object.keys(evt).length) {
       // Try to parse data as JSON
       if (evt.data !== undefined) {
         try {
@@ -148,7 +152,9 @@ function mergeSseBody(events: SseEvent[]): string {
   const parts: string[] = [];
 
   for (const evt of events) {
-    if (evt.data === undefined) continue;
+    if (evt.data === undefined) {
+      continue;
+    }
 
     const data = evt.data as unknown;
 
@@ -180,8 +186,11 @@ function mergeSseBody(events: SseEvent[]): string {
 async function decompressBrotli(buf: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     zlib.brotliDecompress(buf, (err, result) => {
-      if (err) reject(err);
-      else resolve(result);
+      if (err) {
+        reject(err);
+      } else {
+        resolve(result);
+      }
     });
   });
 }
@@ -246,8 +255,12 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
       }: {
         protocols: string[];
       }): string => {
-        if (protocols.includes("http/1.1")) return "http/1.1";
-        if (protocols.includes("http/1.0")) return "http/1.0";
+        if (protocols.includes("http/1.1")) {
+          return "http/1.1";
+        }
+        if (protocols.includes("http/1.0")) {
+          return "http/1.0";
+        }
         // Last resort: echo back whatever the client advertised first.
         // The connection will likely fail at the HTTP framing level (e.g. HTTP/2 frames)
         // but at least TLS completes rather than causing an ALPN alert.
@@ -301,19 +314,23 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     // TCP tunnel. This prevents creating a fake TLS server for those hosts, which would
     // otherwise cause TLS handshake errors (e.g. HTTP/2-only telemetry endpoints).
     // We do NOT call callback() so the library never proceeds to set up its MITM pipeline.
-    if (options.excludes.length > 0) {
+    if (options.excludes.length) {
       proxy.onConnect((req, socket, head, callback) => {
         const hostname = req.url?.split(":")[0] ?? "";
         const port = parseInt(req.url?.split(":")[1] ?? "443", 10);
         const hostUrl = `https://${hostname}/`;
         const excluded = options.excludes.some((re) => re.test(hostUrl));
 
-        if (!excluded) return callback();
+        if (!excluded) {
+          return callback();
+        }
 
         // Direct tunnel: connect to the real server and pipe sockets
         const conn = net.createConnection({ host: hostname, port }, () => {
           socket.write("HTTP/1.1 200 Connection established\r\n\r\n");
-          if (head && head.length > 0) conn.write(head);
+          if (head?.length) {
+            conn.write(head);
+          }
           conn.pipe(socket);
           socket.pipe(conn);
         });
@@ -333,29 +350,33 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
       const fullUrl = `${proto}://${host}${urlPath}`;
 
       // Skip logging if URL doesn't match any --filter (traffic still passes through)
-      if (options.filters.length > 0) {
+      if (options.filters.length) {
         const matches = options.filters.some((re) => re.test(fullUrl));
-        if (!matches) return callback();
+        if (!matches) {
+          return callback();
+        }
       }
 
       // Skip logging if URL matches any --exclude (takes precedence over --filter)
-      if (options.excludes.length > 0) {
+      if (options.excludes.length) {
         const excluded = options.excludes.some((re) => re.test(fullUrl));
-        if (excluded) return callback();
+        if (excluded) {
+          return callback();
+        }
       }
 
       const reqChunks: Buffer[] = [];
       const resChunks: Buffer[] = [];
 
       // Buffer request body chunks while passing them through unchanged
-      ctx.onRequestData((ctx, chunk, cb) => {
+      ctx.onRequestData((_ctx, chunk, cb) => {
         reqChunks.push(chunk);
         return cb(null, chunk);
       });
 
       // Buffer response body chunks while passing them through immediately.
       // Passing chunks through in real-time is essential for SSE/streaming responses.
-      ctx.onResponseData((ctx, chunk, cb) => {
+      ctx.onResponseData((_ctx, chunk, cb) => {
         resChunks.push(chunk);
         return cb(null, chunk);
       });
