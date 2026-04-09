@@ -143,9 +143,9 @@ async function main(): Promise<void> {
       excludes: opts.exclude,
       onError: (url, kind, message) =>
         log(`proxy error [${kind}] on ${url}: ${message}`),
-      onEntry: (method, url, status) => {
+      onEntry: (method, url, status, filename) => {
         const { origin, pathname } = new URL(url);
-        log(`entry: ${method} ${origin}${pathname} ${status}`);
+        log(`${filename} ${method} ${origin}${pathname} ${status}`);
       },
       onTunnel: (host, port) => log(`excluded: ${host}:${port}`),
     });

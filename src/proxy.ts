@@ -29,8 +29,8 @@ export interface ProxyOptions {
   excludes: RegExp[];
   /** Called on proxy errors so the caller can route them to a log file. */
   onError?: (url: string, kind: string, message: string) => void;
-  /** Called after each entry is written, with the method, URL and response status. */
-  onEntry?: (method: string, url: string, status: number) => void;
+  /** Called after each entry is written, with the method, URL, response status and filename. */
+  onEntry?: (method: string, url: string, status: number, filename: string) => void;
   /** Called when a CONNECT tunnel is established for an excluded host (bypass, no MITM). */
   onTunnel?: (host: string, port: number) => void;
   /**
@@ -222,7 +222,7 @@ function normalizeHeaders(
  * Filename: NNNN.json (zero-padded sequential ID).
  * Errors are printed to stderr but do not throw.
  */
-function writeEntry(sessionDir: string, entry: Entry): void {
+function writeEntry(sessionDir: string, entry: Entry): string {
   const filename = path.join(
     sessionDir,
     String(entry.id).padStart(4, "0") + ".json"
@@ -232,6 +232,7 @@ function writeEntry(sessionDir: string, entry: Entry): void {
   } catch (err) {
     process.stderr.write(`[clsniff] failed to write log: ${err}\n`);
   }
+  return path.basename(filename);
 }
 
 /**
@@ -491,8 +492,8 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
               },
             };
 
-            writeEntry(options.sessionDir, entry);
-            options.onEntry?.(entry.request.method, entry.request.url, entry.response.status);
+            const filename = writeEntry(options.sessionDir, entry);
+            options.onEntry?.(entry.request.method, entry.request.url, entry.response.status, filename);
           } catch (err) {
             process.stderr.write(
               `[clsniff] error processing response for ${fullUrl}: ${err}\n`
