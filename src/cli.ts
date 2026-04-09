@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 import { Command, InvalidArgumentError } from "commander";
-import { spawn } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { pathToFileURL } from "url";
 import { startProxy } from "./proxy.js";
 
 const program = new Command();
@@ -14,14 +13,9 @@ program
   .description(
     "Wrap any console command and intercept its HTTP/HTTPS traffic, saving each request/response pair as a JSON file."
   )
-  .version("1.0.3")
+  .version("1.1.0")
   .argument("<command>", "Command to run (after --)")
   .argument("[args...]", "Arguments forwarded to the command")
-  .option(
-    "--merge-sse",
-    "Merge SSE event data into a single body string instead of keeping individual events",
-    false
-  )
   .option(
     "--output-dir <path>",
     "Directory where session log folders are created",
@@ -47,53 +41,72 @@ program
     [] as string[]
   )
   .option(
-    "--filter <pattern>",
-    "Only log requests whose URL matches this regex. Can be repeated (OR logic).",
-    (value: string, prev: RegExp[]) => {
-      try {
-        return prev.concat(new RegExp(value));
-      } catch {
-        throw new InvalidArgumentError(`Invalid regex: ${value}`);
-      }
-    },
-    [] as RegExp[]
-  )
-  .option(
     "--name <name>",
     "Name for the session folder instead of the auto-generated timestamp."
   )
   .option(
-    "--exclude <pattern>",
-    "Never log requests whose URL matches this regex. Can be repeated. Takes precedence over --filter.",
-    (value: string, prev: RegExp[]) => {
-      try {
-        return prev.concat(new RegExp(value));
-      } catch {
-        throw new InvalidArgumentError(`Invalid regex: ${value}`);
-      }
-    },
-    [] as RegExp[]
+    "--exclude <hosts>",
+    "Comma-separated hosts to bypass interception entirely (NO_PROXY format, e.g. localhost,.example.com,telemetry.anthropic.com). Can be repeated.",
+    (value: string, prev: string[]) =>
+      prev.concat(value.split(",").map((s) => s.trim()).filter(Boolean)),
+    [] as string[]
+  )
+  .option(
+    "--install-cert",
+    "Install mitmproxy CA certificate in the system trust store",
+    false
   )
   // Allow the -- separator so users can write: clsniff [options] -- command args
   .passThroughOptions(true)
   .allowUnknownOption(false);
 
+function installCert(cerPath: string): void {
+  if (!fs.existsSync(cerPath)) {
+    process.stderr.write(
+      `[clsniff] Warning: CA cert not found at ${cerPath}. Cannot install.\n`
+    );
+    return;
+  }
+  if (process.platform === "win32") {
+    process.stderr.write(
+      `[clsniff] Installing CA certificate in Windows trusted root store...\n`
+    );
+    const result = spawnSync("certutil", ["-addstore", "-user", "Root", cerPath], {
+      stdio: "inherit",
+    });
+    if (result.status !== 0) {
+      process.stderr.write(
+        `[clsniff] Warning: certutil failed. You can install it manually:\n` +
+        `  certutil -addstore -user Root "${cerPath}"\n`
+      );
+    }
+  } else if (process.platform === "darwin") {
+    process.stderr.write(
+      `[clsniff] To trust the CA certificate on macOS, run:\n` +
+      `  sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${cerPath.replace(/\.pem$/, ".cer")}"\n`
+    );
+  } else {
+    process.stderr.write(
+      `[clsniff] To trust the CA certificate on Linux, follow your distro's instructions for adding a CA cert.\n` +
+      `  Cert location: ${cerPath}\n`
+    );
+  }
+}
+
 async function main(): Promise<void> {
   program.parse(process.argv);
 
   const opts = program.opts<{
-    mergeSse: boolean;
     outputDir: string;
     port: number;
     name?: string;
     maskHeaders: string[];
-    filter: RegExp[];
-    exclude: RegExp[];
+    exclude: string[];
+    installCert: boolean;
   }>();
 
-  // Silence all console output from third-party libraries.
-  // The child process uses stdio: 'inherit', so any console output from the
-  // parent would be interleaved with the child's output.
+  // Silence all console output from third-party libraries so it doesn't
+  // interleave with the child process output (which uses stdio: 'inherit').
   for (const key of Object.keys(console)) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof (console as any)[key] === "function") (console as any)[key] = () => {};
@@ -132,24 +145,16 @@ async function main(): Promise<void> {
     logStream.write(`${new Date().toISOString()} ${msg}\n`);
   };
 
-  // Start MITM proxy
+  // Start mitmdump proxy
   let proxyHandle: Awaited<ReturnType<typeof startProxy>>;
   try {
     proxyHandle = await startProxy({
       port: opts.port,
       sessionDir,
-      mergeSse: opts.mergeSse,
       maskHeaders: opts.maskHeaders,
-      filters: opts.filter,
       excludes: opts.exclude,
-      onError: (url, kind, message) =>
-        log(`proxy error [${kind}] on ${url}: ${message}`),
-      onEntry: (filePath, method, url, status) => {
-        const { origin, pathname } = new URL(url);
-        log(`${method} ${origin}${pathname} ${status} ${pathToFileURL(filePath).href}`);
-      },
-      onConnect: (host, port) => log(`connect: ${host}:${port}`),
-      onTunnel: (host, port) => log(`excluded: ${host}:${port}`),
+      logFile: clsniffLogPath,
+      onError: (message) => log(`proxy error: ${message}`),
     });
   } catch (err) {
     log(`failed to start proxy: ${err}`);
@@ -158,9 +163,12 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (proxyHandle.caIsNew) {
-    log(`CA certificate generated at: ${proxyHandle.caPath}`);
+  // Install CA certificate on first run or when explicitly requested
+  const cerPath = path.join(os.homedir(), ".mitmproxy", "mitmproxy-ca-cert.cer");
+  if (proxyHandle.caIsNew || opts.installCert) {
+    installCert(cerPath);
   }
+
   log(`proxy listening on port ${proxyHandle.port}`);
   log(`session dir: ${sessionDir}`);
   log(`command: ${[command, ...commandArgs].join(" ")}`);
@@ -169,22 +177,20 @@ async function main(): Promise<void> {
   const proxyUrl = `http://127.0.0.1:${proxyHandle.port}`;
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    // Standard proxy vars (uppercase and lowercase variants for maximum compatibility)
+    // Standard proxy vars (uppercase and lowercase for maximum compatibility)
     HTTP_PROXY: proxyUrl,
     HTTPS_PROXY: proxyUrl,
     http_proxy: proxyUrl,
     https_proxy: proxyUrl,
+    // Bypass localhost to avoid the proxy routing traffic to itself
+    NO_PROXY: "localhost,127.0.0.1",
+    no_proxy: "localhost,127.0.0.1",
     // CA trust vars for common runtimes
     NODE_EXTRA_CA_CERTS: proxyHandle.caPath, // Node.js
-    // SSL_CERT_FILE replaces the entire system CA bundle with our proxy CA only.
-    // This means TLS connections to hosts bypassed via --exclude will fail, since
-    // those tunnels reach the real server but the real CAs are no longer trusted.
-    SSL_CERT_FILE: proxyHandle.caPath, // OpenSSL-based tools (curl, Go, Ruby…)
-    REQUESTS_CA_BUNDLE: proxyHandle.caPath, // Python requests library
+    REQUESTS_CA_BUNDLE: proxyHandle.caPath,  // Python requests library
+    SSL_CERT_FILE: proxyHandle.caPath,       // OpenSSL-based tools (curl, Go, Ruby…)
     // NODE_USE_ENV_PROXY is intentionally NOT set here. Enabling it activates undici's
     // HTTP/2 proxy mode which conflicts with our HTTP/1.1-only MITM proxy.
-    // Most SDK-based clients (Anthropic, OpenAI, etc.) handle HTTPS_PROXY natively
-    // without needing this variable.
   };
 
   // On Windows, .cmd/.bat files (e.g. npm, npx) require shell:true to be found
