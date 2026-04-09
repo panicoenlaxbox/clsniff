@@ -103,6 +103,35 @@ function httpsGetThroughProxy(
   });
 }
 
+/**
+ * Sends a CONNECT request through the proxy and resolves once the proxy responds
+ * with "200 Connection established". Does not upgrade to TLS — used to verify the
+ * tunnel is established without caring about the upper-layer protocol.
+ */
+function connectThroughProxy(proxyPort: number, targetHost: string, targetPort: number): Promise<net.Socket> {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: "127.0.0.1", port: proxyPort });
+
+    socket.once("connect", () => {
+      socket.write(`CONNECT ${targetHost}:${targetPort} HTTP/1.1\r\nHost: ${targetHost}:${targetPort}\r\n\r\n`);
+    });
+
+    let buf = "";
+    socket.on("data", function onData(chunk: Buffer) {
+      buf += chunk.toString();
+      if (!buf.includes("\r\n\r\n")) return;
+      socket.removeListener("data", onData);
+      if (!buf.startsWith("HTTP/1.1 200")) {
+        reject(new Error(`CONNECT failed: ${buf.split("\r\n")[0]}`));
+        return;
+      }
+      resolve(socket);
+    });
+
+    socket.on("error", reject);
+  });
+}
+
 /** Reads the single .json log entry written by the proxy in the given session dir. */
 function readLogEntry(sessionDir: string): Record<string, unknown> {
   const files = fs.readdirSync(sessionDir).filter((f) => f.endsWith(".json"));
@@ -192,4 +221,44 @@ describe("proxy integration", () => {
       fs.rmSync(tmpCaDir, { recursive: true, force: true });
     }
   }, 20_000);
+
+  it("excluded host: fires onTunnel and writes no log entry", async () => {
+    const sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), "clsniff-excl-"));
+    const tmpCaDir = fs.mkdtempSync(path.join(os.tmpdir(), "clsniff-ca-"));
+
+    // Bare TCP server — just accepts the connection so the tunnel can be established
+    const target = net.createServer();
+    await new Promise<void>((resolve) => target.listen(0, "127.0.0.1", resolve));
+    const targetPort = (target.address() as net.AddressInfo).port;
+
+    const tunnelCalls: Array<{ host: string; port: number }> = [];
+
+    const proxy = await startProxy({
+      sessionDir,
+      mergeSse: false,
+      maskHeaders: [],
+      filters: [],
+      excludes: [/localhost/],
+      sslCaDir: tmpCaDir,
+      onTunnel: (host, port) => tunnelCalls.push({ host, port }),
+    });
+
+    let socket: net.Socket | undefined;
+    try {
+      socket = await connectThroughProxy(proxy.port, "localhost", targetPort);
+
+      expect(tunnelCalls).toHaveLength(1);
+      expect(tunnelCalls[0]).toEqual({ host: "localhost", port: targetPort });
+
+      // No request/response cycle happened — no JSON log files should exist
+      const jsonFiles = fs.readdirSync(sessionDir).filter((f) => f.endsWith(".json"));
+      expect(jsonFiles).toHaveLength(0);
+    } finally {
+      socket?.destroy();
+      proxy.close();
+      target.close();
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+      fs.rmSync(tmpCaDir, { recursive: true, force: true });
+    }
+  }, 10_000);
 });

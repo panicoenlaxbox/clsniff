@@ -147,6 +147,7 @@ async function main(): Promise<void> {
         const { origin, pathname } = new URL(url);
         log(`entry: ${method} ${origin}${pathname} ${status}`);
       },
+      onTunnel: (host, port) => log(`excluded: ${host}:${port}`),
     });
   } catch (err) {
     log(`failed to start proxy: ${err}`);

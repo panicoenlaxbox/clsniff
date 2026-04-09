@@ -31,6 +31,8 @@ export interface ProxyOptions {
   onError?: (url: string, kind: string, message: string) => void;
   /** Called after each entry is written, with the method, URL and response status. */
   onEntry?: (method: string, url: string, status: number) => void;
+  /** Called when a CONNECT tunnel is established for an excluded host (bypass, no MITM). */
+  onTunnel?: (host: string, port: number) => void;
   /**
    * Directory for CA certificate storage. Defaults to ~/.clsniff.
    * Override in tests to use a temporary directory.
@@ -345,8 +347,14 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
           }
           conn.pipe(socket);
           socket.pipe(conn);
+          options.onTunnel?.(hostname, port);
         });
-        conn.on("error", () => socket.destroy());
+        conn.on("error", (err) => {
+          socket.destroy();
+          if (options.onError) {
+            options.onError(hostUrl, "TUNNEL_ERROR", err?.message ?? String(err));
+          }
+        });
         socket.on("error", () => conn.destroy());
         // Do NOT call callback() — prevents the library from running its MITM setup
       });
