@@ -317,14 +317,18 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     // Automatically decompress gzip/deflate responses so our handlers see plain text
     proxy.use(Proxy.gunzip);
 
-    // Transfer-Encoding is a hop-by-hop header that proxies must not forward
-    // (RFC 9110 §7.6.1 — https://www.rfc-editor.org/rfc/rfc9110#section-7.6.1).
+    // Strip hop-by-hop and proxy-sensitive headers before forwarding to the client.
+    // - Transfer-Encoding: hop-by-hop, must not be forwarded (RFC 9110 §7.6.1).
+    // - Alt-Svc: announces HTTP/3 (QUIC/UDP) alternative endpoints. A TCP-only MITM
+    //   proxy cannot intercept QUIC traffic, so forwarding this header would cause
+    //   clients to bypass the proxy entirely for subsequent requests to the same host.
     proxy.onResponseHeaders((ctx, callback) => {
       const headers = (ctx as any).serverToProxyResponse?.headers as
         | Record<string, unknown>
         | undefined;
       if (headers) {
         delete headers["transfer-encoding"];
+        delete headers["alt-svc"];
       }
       return callback();
     });
