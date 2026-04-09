@@ -4,6 +4,7 @@ import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { pathToFileURL } from "url";
 import { startProxy } from "./proxy.js";
 
 const program = new Command();
@@ -109,7 +110,7 @@ async function main(): Promise<void> {
 
   // Create session directory: <outputDir>/<name|timestamp>/
   const sessionName = opts.name ?? new Date().toISOString().replace(/[:.]/g, "-");
-  const sessionDir = path.join(opts.outputDir, sessionName);
+  const sessionDir = path.resolve(opts.outputDir, sessionName);
 
   if (opts.name && fs.existsSync(sessionDir)) {
     const entries = fs.readdirSync(sessionDir);
@@ -143,9 +144,9 @@ async function main(): Promise<void> {
       excludes: opts.exclude,
       onError: (url, kind, message) =>
         log(`proxy error [${kind}] on ${url}: ${message}`),
-      onEntry: (method, url, status, filename) => {
+      onEntry: (filePath, method, url, status) => {
         const { origin, pathname } = new URL(url);
-        log(`${filename} ${method} ${origin}${pathname} ${status}`);
+        log(`${method} ${origin}${pathname} ${status} ${pathToFileURL(filePath).href}`);
       },
       onConnect: (host, port) => log(`connect: ${host}:${port}`),
       onTunnel: (host, port) => log(`excluded: ${host}:${port}`),

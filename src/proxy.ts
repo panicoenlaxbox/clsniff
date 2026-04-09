@@ -29,8 +29,8 @@ export interface ProxyOptions {
   excludes: RegExp[];
   /** Called on proxy errors so the caller can route them to a log file. */
   onError?: (url: string, kind: string, message: string) => void;
-  /** Called after each entry is written, with the method, URL, response status and filename. */
-  onEntry?: (method: string, url: string, status: number, filename: string) => void;
+  /** Called after each entry is written, with the full path to the JSON file, method, URL and response status. */
+  onEntry?: (filePath: string, method: string, url: string, status: number) => void;
   /** Called when a CONNECT tunnel is established for an excluded host (bypass, no MITM). */
   onTunnel?: (host: string, port: number) => void;
   /** Called for every CONNECT request received, before any routing decision. */
@@ -221,20 +221,21 @@ function normalizeHeaders(
 
 /**
  * Writes a request/response entry as a formatted JSON file.
- * Filename: NNNN.json (zero-padded sequential ID).
+ * Filename: <timestamp>_<id>.json (e.g. 1744198252123_47.json).
+ * Returns the full absolute path to the written file.
  * Errors are printed to stderr but do not throw.
  */
 function writeEntry(sessionDir: string, entry: Entry): string {
   const filename = path.join(
     sessionDir,
-    String(entry.id).padStart(4, "0") + ".json"
+    `${Date.now()}_${entry.id}.json`
   );
   try {
     fs.writeFileSync(filename, JSON.stringify(entry, null, 2), "utf-8");
   } catch (err) {
     process.stderr.write(`[clsniff] failed to write log: ${err}\n`);
   }
-  return path.basename(filename);
+  return filename;
 }
 
 /**
@@ -512,8 +513,8 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
               },
             };
 
-            const filename = writeEntry(options.sessionDir, entry);
-            options.onEntry?.(entry.request.method, entry.request.url, entry.response.status, filename);
+            const filePath = writeEntry(options.sessionDir, entry);
+            options.onEntry?.(filePath, entry.request.method, entry.request.url, entry.response.status);
           } catch (err) {
             process.stderr.write(
               `[clsniff] error processing response for ${fullUrl}: ${err}\n`
