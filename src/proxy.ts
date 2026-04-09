@@ -33,6 +33,8 @@ export interface ProxyOptions {
   onEntry?: (method: string, url: string, status: number, filename: string) => void;
   /** Called when a CONNECT tunnel is established for an excluded host (bypass, no MITM). */
   onTunnel?: (host: string, port: number) => void;
+  /** Called for every CONNECT request received, before any routing decision. */
+  onConnect?: (host: string, port: number) => void;
   /**
    * Directory for CA certificate storage. Defaults to ~/.clsniff.
    * Override in tests to use a temporary directory.
@@ -314,6 +316,18 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     // Automatically decompress gzip/deflate responses so our handlers see plain text
     proxy.use(Proxy.gunzip);
 
+    // Transfer-Encoding is a hop-by-hop header that proxies must not forward
+    // (RFC 9110 §7.6.1 — https://www.rfc-editor.org/rfc/rfc9110#section-7.6.1).
+    proxy.onResponseHeaders((ctx, callback) => {
+      const headers = (ctx as any).serverToProxyResponse?.headers as
+        | Record<string, unknown>
+        | undefined;
+      if (headers) {
+        delete headers["transfer-encoding"];
+      }
+      return callback();
+    });
+
     proxy.onError((ctx, err, errorKind) => {
       const url = ctx?.clientToProxyRequest?.url ?? "(unknown)";
       const kind = errorKind ?? "error";
@@ -325,41 +339,47 @@ export function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
       }
     });
 
+    // Always register onConnect to log every CONNECT attempt and handle excluded hosts.
     // For excluded hosts, bypass MITM entirely at the CONNECT level by creating a direct
     // TCP tunnel. This prevents creating a fake TLS server for those hosts, which would
     // otherwise cause TLS handshake errors (e.g. HTTP/2-only telemetry endpoints).
     // We do NOT call callback() so the library never proceeds to set up its MITM pipeline.
-    if (options.excludes.length) {
-      proxy.onConnect((req, socket, head, callback) => {
-        const hostname = req.url?.split(":")[0] ?? "";
-        const port = parseInt(req.url?.split(":")[1] ?? "443", 10);
-        const hostUrl = `https://${hostname}/`;
-        const excluded = options.excludes.some((re) => re.test(hostUrl));
+    proxy.onConnect((req, socket, head, callback) => {
+      const hostname = req.url?.split(":")[0] ?? "";
+      const port = parseInt(req.url?.split(":")[1] ?? "443", 10);
+      const hostUrl = `https://${hostname}/`;
 
-        if (!excluded) {
-          return callback();
+      options.onConnect?.(hostname, port);
+
+      if (!options.excludes.length) {
+        return callback();
+      }
+
+      const excluded = options.excludes.some((re) => re.test(hostUrl));
+
+      if (!excluded) {
+        return callback();
+      }
+
+      // Direct tunnel: connect to the real server and pipe sockets
+      const conn = net.createConnection({ host: hostname, port }, () => {
+        socket.write("HTTP/1.1 200 Connection established\r\n\r\n");
+        if (head?.length) {
+          conn.write(head);
         }
-
-        // Direct tunnel: connect to the real server and pipe sockets
-        const conn = net.createConnection({ host: hostname, port }, () => {
-          socket.write("HTTP/1.1 200 Connection established\r\n\r\n");
-          if (head?.length) {
-            conn.write(head);
-          }
-          conn.pipe(socket);
-          socket.pipe(conn);
-          options.onTunnel?.(hostname, port);
-        });
-        conn.on("error", (err) => {
-          socket.destroy();
-          if (options.onError) {
-            options.onError(hostUrl, "TUNNEL_ERROR", err?.message ?? String(err));
-          }
-        });
-        socket.on("error", () => conn.destroy());
-        // Do NOT call callback() — prevents the library from running its MITM setup
+        conn.pipe(socket);
+        socket.pipe(conn);
+        options.onTunnel?.(hostname, port);
       });
-    }
+      conn.on("error", (err) => {
+        socket.destroy();
+        if (options.onError) {
+          options.onError(hostUrl, "TUNNEL_ERROR", err?.message ?? String(err));
+        }
+      });
+      socket.on("error", () => conn.destroy());
+      // Do NOT call callback() — prevents the library from running its MITM setup
+    });
 
     proxy.onRequest((ctx, callback) => {
       const startTime = Date.now();

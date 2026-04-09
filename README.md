@@ -170,6 +170,8 @@ This CA is used to sign those per-host certificates on the fly. You do **not** n
 - [`SSL_CERT_FILE`](https://docs.openssl.org/3.1/man7/openssl-env/)`=~/.clsniff/certs/ca.pem`
 - [`REQUESTS_CA_BUNDLE`](https://docs.python-requests.org/en/latest/user/advanced/#ssl-cert-verification)`=~/.clsniff/certs/ca.pem`
 
+> **Note:** `SSL_CERT_FILE` replaces the system CA bundle entirely. If you use `--exclude` to bypass interception for certain hosts, those tunnelled connections reach the real server but will fail TLS verification because the real CAs are no longer trusted.
+
 ## Development
 
 ```bash

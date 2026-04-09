@@ -261,4 +261,137 @@ describe("proxy integration", () => {
       fs.rmSync(tmpCaDir, { recursive: true, force: true });
     }
   }, 10_000);
+
+  it("HTTPS: correctly delivers chunked + connection:close response body to client", async () => {
+    // Regression test for the downloads.claude.ai URL corruption bug.
+    // When upstream sends transfer-encoding:chunked + connection:close (as GCS does),
+    // the client must receive the decoded body — not the raw HTTP framing bytes.
+    const sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), "clsniff-chunked-"));
+    const tmpCaDir = fs.mkdtempSync(path.join(os.tmpdir(), "clsniff-ca-"));
+
+    const { cert, key } = makeSelfSignedCert();
+    const targetBody = "98c01d3fbf621892e437fc64a10d38950690e2c6";
+    const hexSize = Buffer.byteLength(targetBody).toString(16); // "28"
+
+    // Use a raw TLS server so we can write the exact chunked HTTP response that GCS
+    // sends (transfer-encoding:chunked + connection:close), without Node.js rewriting it.
+    const tlsServer = tls.createServer({ cert, key }, (tlsConn) => {
+      let buf = "";
+      tlsConn.setEncoding("utf8");
+      tlsConn.on("data", (chunk: string) => {
+        buf += chunk;
+        if (!buf.includes("\r\n\r\n")) return;
+        const rawResponse =
+          "HTTP/1.1 200 OK\r\n" +
+          "content-type: text/plain\r\n" +
+          "transfer-encoding: chunked\r\n" +
+          "connection: close\r\n" +
+          "\r\n" +
+          `${hexSize}\r\n` +
+          `${targetBody}\r\n` +
+          "0\r\n" +
+          "\r\n";
+        tlsConn.write(rawResponse);
+        tlsConn.end();
+      });
+      tlsConn.on("error", () => {});
+    });
+    await new Promise<void>((resolve) => tlsServer.listen(0, "127.0.0.1", resolve));
+    const serverPort = (tlsServer.address() as net.AddressInfo).port;
+
+    const proxyHttpsAgent = new https.Agent({ rejectUnauthorized: false });
+    const proxy = await startProxy({
+      sessionDir,
+      mergeSse: false,
+      maskHeaders: [],
+      filters: [],
+      excludes: [],
+      sslCaDir: tmpCaDir,
+      proxyHttpsAgent,
+    });
+
+    let receivedBody: string | undefined;
+    try {
+      // Connect through the proxy CONNECT tunnel, upgrade to TLS, send a real HTTP
+      // GET, and collect the raw response so we can verify the body the client sees.
+      receivedBody = await new Promise<string>((resolve, reject) => {
+        const sock = net.createConnection({ host: "127.0.0.1", port: proxy.port });
+        sock.once("connect", () => {
+          sock.write(
+            `CONNECT localhost:${serverPort} HTTP/1.1\r\nHost: localhost:${serverPort}\r\n\r\n`,
+          );
+        });
+
+        let connectBuf = "";
+        sock.on("data", function onData(chunk: Buffer) {
+          connectBuf += chunk.toString();
+          if (!connectBuf.includes("\r\n\r\n")) return;
+          sock.removeListener("data", onData);
+
+          if (!connectBuf.startsWith("HTTP/1.1 200")) {
+            reject(new Error(`CONNECT failed: ${connectBuf.split("\r\n")[0]}`));
+            return;
+          }
+
+          const tlsSock = tls.connect({
+            socket: sock,
+            host: "localhost",
+            servername: "localhost",
+            ca: fs.readFileSync(proxy.caPath),
+            rejectUnauthorized: true,
+          });
+
+          tlsSock.once("secureConnect", () => {
+            tlsSock.write(
+              `GET /latest HTTP/1.1\r\nHost: localhost:${serverPort}\r\nAccept: */*\r\nConnection: close\r\n\r\n`,
+            );
+            let raw = "";
+            tlsSock.on("data", (d: Buffer) => { raw += d.toString(); });
+            tlsSock.once("end", () => {
+              // Parse the raw HTTP response: find header/body separator
+              const sep = raw.indexOf("\r\n\r\n");
+              if (sep === -1) { reject(new Error("No header separator in response")); return; }
+              const headerSection = raw.slice(0, sep).toLowerCase();
+              const rawBody = raw.slice(sep + 4);
+
+              // Decode chunked body if the response uses chunked encoding
+              if (headerSection.includes("transfer-encoding: chunked")) {
+                let decoded = "";
+                let pos = 0;
+                while (pos < rawBody.length) {
+                  const end = rawBody.indexOf("\r\n", pos);
+                  if (end === -1) break;
+                  const size = parseInt(rawBody.slice(pos, end), 16);
+                  if (isNaN(size) || size === 0) break;
+                  decoded += rawBody.slice(end + 2, end + 2 + size);
+                  pos = end + 2 + size + 2;
+                }
+                resolve(decoded);
+              } else {
+                resolve(rawBody);
+              }
+            });
+            tlsSock.on("error", reject);
+          });
+
+          tlsSock.on("error", reject);
+        });
+
+        sock.on("error", reject);
+      });
+
+      // The client must receive the actual body, not the raw HTTP framing
+      expect(receivedBody).toBe(targetBody);
+
+      // The proxy log must also show the correct decoded body
+      await new Promise((r) => setTimeout(r, 200));
+      const entry = readLogEntry(sessionDir);
+      expect(entry.response).toMatchObject({ status: 200, body: targetBody });
+    } finally {
+      proxy.close();
+      tlsServer.close();
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+      fs.rmSync(tmpCaDir, { recursive: true, force: true });
+    }
+  }, 20_000);
 });

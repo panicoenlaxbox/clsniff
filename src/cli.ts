@@ -147,6 +147,7 @@ async function main(): Promise<void> {
         const { origin, pathname } = new URL(url);
         log(`${filename} ${method} ${origin}${pathname} ${status}`);
       },
+      onConnect: (host, port) => log(`connect: ${host}:${port}`),
       onTunnel: (host, port) => log(`excluded: ${host}:${port}`),
     });
   } catch (err) {
@@ -174,7 +175,10 @@ async function main(): Promise<void> {
     https_proxy: proxyUrl,
     // CA trust vars for common runtimes
     NODE_EXTRA_CA_CERTS: proxyHandle.caPath, // Node.js
-    SSL_CERT_FILE: proxyHandle.caPath, // OpenSSL-based runtimes
+    // SSL_CERT_FILE replaces the entire system CA bundle with our proxy CA only.
+    // This means TLS connections to hosts bypassed via --exclude will fail, since
+    // those tunnels reach the real server but the real CAs are no longer trusted.
+    SSL_CERT_FILE: proxyHandle.caPath, // OpenSSL-based tools (curl, Go, Ruby…)
     REQUESTS_CA_BUNDLE: proxyHandle.caPath, // Python requests library
     // NODE_USE_ENV_PROXY is intentionally NOT set here. Enabling it activates undici's
     // HTTP/2 proxy mode which conflicts with our HTTP/1.1-only MITM proxy.
