@@ -5,6 +5,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { startProxy } from "./proxy.js";
+import { startViewer } from "./server.js";
 
 const { version } = JSON.parse(
   fs.readFileSync(path.join(__dirname, "../package.json"), "utf-8")
@@ -60,6 +61,15 @@ program
     "Install mitmproxy CA certificate in the system trust store",
     false
   )
+  .option(
+    "--viewer",
+    "Start a web-based log viewer for captured sessions",
+    false
+  )
+  .option(
+    "--no-open",
+    "Do not auto-open the browser when starting the viewer"
+  )
   // Allow the -- separator so users can write: clsniff [options] -- command args
   .passThroughOptions(true)
   .allowUnknownOption(false);
@@ -107,6 +117,8 @@ async function main(): Promise<void> {
     maskHeaders: string[];
     exclude: string[];
     installCert: boolean;
+    viewer: boolean;
+    open: boolean;
   }>();
 
   // Silence all console output from third-party libraries so it doesn't
@@ -122,6 +134,22 @@ async function main(): Promise<void> {
     const caCerPath = path.join(os.homedir(), ".mitmproxy", "mitmproxy-ca-cert.cer");
     installCert(caCerPath);
     process.exit(0);
+  }
+
+  // --viewer without a command: standalone viewer mode (browse existing sessions)
+  if (opts.viewer && !positional.length) {
+    const viewerHandle = await startViewer({
+      outputDir: opts.outputDir,
+      open: opts.open,
+    });
+    process.stderr.write(`[clsniff] viewer running at ${viewerHandle.url}\n`);
+    const shutdown = () => {
+      viewerHandle.close();
+      process.exit(0);
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+    return; // keep process alive
   }
 
   if (!positional.length) {
@@ -185,6 +213,22 @@ async function main(): Promise<void> {
   log(`options: ${JSON.stringify(opts)}`);
   log(`command: ${[command, ...commandArgs].join(" ")}`);
 
+  // Start viewer alongside the proxy if requested
+  let viewerHandle: Awaited<ReturnType<typeof startViewer>> | null = null;
+  if (opts.viewer) {
+    try {
+      viewerHandle = await startViewer({
+        outputDir: opts.outputDir,
+        activeSession: sessionName,
+        open: opts.open,
+      });
+      process.stderr.write(`[clsniff] viewer running at ${viewerHandle.url}\n`);
+      log(`viewer running at ${viewerHandle.url}`);
+    } catch (err) {
+      process.stderr.write(`[clsniff] warning: could not start viewer: ${err}\n`);
+    }
+  }
+
   // Environment variables injected into the child process
   const proxyUrl = `http://127.0.0.1:${proxyHandle.port}`;
   const childEnv: NodeJS.ProcessEnv = {
@@ -233,6 +277,7 @@ async function main(): Promise<void> {
 
   child.on("exit", (code, signal) => {
     proxyHandle.close();
+    viewerHandle?.close();
     log(`child exited with code ${code ?? signal}`);
     logStream.end(() => {
       if (signal) {
