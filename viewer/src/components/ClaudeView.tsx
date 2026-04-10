@@ -49,15 +49,15 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-gray-200 rounded">
+    <div className="border border-gray-200 dark:border-gray-700 rounded">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-1.5 px-3 py-2 font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 hover:bg-gray-100 cursor-pointer rounded-t"
+        className="w-full flex items-center gap-1.5 px-3 py-2 font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-t"
       >
         <Chevron open={open} />
         <span>{title}</span>
         {badge && (
-          <span className="ml-1 font-normal normal-case text-gray-400 text-xs">{badge}</span>
+          <span className="ml-1 font-normal normal-case text-gray-400 dark:text-gray-500 text-xs">{badge}</span>
         )}
       </button>
       {open && <div className="p-3">{children}</div>}
@@ -70,13 +70,13 @@ function CollapsibleSection({
 function ToolUseBlock({ block, wordWrap }: { block: ClaudeToolUseBlock; wordWrap: boolean }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border border-purple-200 rounded bg-purple-50/60 mt-2">
+    <div className="border border-purple-200 dark:border-purple-800 rounded bg-purple-50/60 dark:bg-purple-950/40 mt-2">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 cursor-pointer rounded hover:bg-purple-100/60"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 cursor-pointer rounded hover:bg-purple-100/60 dark:hover:bg-purple-900/40 text-purple-600 dark:text-purple-400"
       >
         <Chevron open={open} />
-        <span className="text-purple-700 font-semibold uppercase tracking-wider">
+        <span className="text-purple-700 dark:text-purple-400 font-semibold uppercase tracking-wider">
           {block.name}
         </span>
       </button>
@@ -95,23 +95,23 @@ function ToolResultBlock({ block, wordWrap }: { block: ClaudeToolResultBlock; wo
   const [open, setOpen] = useState(false);
   const contentItems = Array.isArray(block.content) ? block.content : null;
   return (
-    <div className="border border-gray-200 rounded bg-gray-50/80 mt-2">
+    <div className="border border-gray-200 dark:border-gray-700 rounded bg-gray-50/80 dark:bg-gray-800/60 mt-2">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 cursor-pointer rounded hover:bg-gray-100"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
       >
         <Chevron open={open} />
-        <span className="text-gray-500 font-semibold uppercase tracking-wider">
+        <span className="text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider">
           Tool result
         </span>
-        <span className="text-gray-400 text-xs ml-1 font-mono">{block.tool_use_id.slice(-8)}</span>
+        <span className="text-gray-400 dark:text-gray-500 text-xs ml-1 font-mono">{block.tool_use_id.slice(-8)}</span>
       </button>
       {open && (
         <div className="px-3 pb-3 space-y-1">
           {contentItems === null ? (
-            <span className="text-gray-400 font-mono text-xs">{String(block.content ?? "null")}</span>
+            <span className="text-gray-400 dark:text-gray-500 font-mono text-xs">{String(block.content ?? "null")}</span>
           ) : contentItems.length === 0 ? (
-            <span className="text-gray-400 font-mono text-xs">[]</span>
+            <span className="text-gray-400 dark:text-gray-500 font-mono text-xs">[]</span>
           ) : (
             contentItems.map((item, i) => {
               const it = item as Record<string, unknown>;
@@ -119,7 +119,7 @@ function ToolResultBlock({ block, wordWrap }: { block: ClaudeToolResultBlock; wo
                 return (
                   <pre
                     key={i}
-                    className="text-gray-700 bg-white rounded p-2 border border-gray-100 overflow-x-auto whitespace-pre-wrap break-words"
+                    className="text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 rounded p-2 border border-gray-100 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap break-words"
                   >
                     {it.text}
                   </pre>
@@ -153,11 +153,11 @@ function ContentBlocks({
             <div key={i} className="relative group">
               <div className="sticky top-0 flex justify-end pointer-events-none">
                 <div className="pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                  <CopyBtn text={text} className="m-1 bg-white shadow-sm border border-gray-200" />
+                  <CopyBtn text={text} className="m-1 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600" />
                 </div>
               </div>
               <pre
-                className="text-gray-800 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words -mt-[30px]"
+                className="text-gray-800 dark:text-gray-200 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words -mt-[30px]"
               >
                 {text}
               </pre>
@@ -181,14 +181,14 @@ function ContentBlocks({
 
 const roleStyles = {
   user: {
-    bg: "bg-blue-50 border-blue-200",
+    bg: "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800",
     label: "USER",
-    labelColor: "text-blue-600",
+    labelColor: "text-blue-600 dark:text-blue-400",
   },
   assistant: {
-    bg: "bg-emerald-50 border-emerald-200",
+    bg: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800",
     label: "ASSISTANT",
-    labelColor: "text-emerald-700",
+    labelColor: "text-emerald-700 dark:text-emerald-400",
   },
 } as const;
 
@@ -208,7 +208,7 @@ function MessageBubble({
     <div className={`rounded-lg border ${style.bg}`}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-1.5 px-4 py-3 cursor-pointer"
+        className="w-full flex items-center gap-1.5 px-4 py-3 cursor-pointer text-gray-400 dark:text-gray-500"
       >
         <Chevron open={open} />
         <span className={`font-semibold uppercase tracking-wider ${style.labelColor}`}>
@@ -241,14 +241,14 @@ function ResponseBubble({
     <div className={`rounded-lg border ${style.bg}`}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-1.5 px-4 py-3 cursor-pointer"
+        className="w-full flex items-center gap-1.5 px-4 py-3 cursor-pointer text-gray-400 dark:text-gray-500"
       >
         <Chevron open={open} />
         <span className={`font-semibold uppercase tracking-wider ${style.labelColor}`}>
           {style.label}
         </span>
         {response.stopReason && (
-          <span className="ml-2 font-normal normal-case text-gray-400 text-xs font-mono">
+          <span className="ml-2 font-normal normal-case text-gray-400 dark:text-gray-500 text-xs font-mono">
             {`{ stop_reason: "${response.stopReason}" }`}
           </span>
         )}
@@ -270,7 +270,7 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
 
   if (!req) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400">
+      <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500">
         Unable to parse Claude API request body.
       </div>
     );
@@ -303,16 +303,16 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Metadata bar */}
-      <div className="font-mono text-gray-500 bg-gray-50 rounded px-3 py-2 mx-3 mt-3 mb-2 shrink-0 flex items-center gap-3 flex-wrap">
-        <span className="text-gray-700">{response?.model ?? req.model}</span>
+      <div className="font-mono text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded px-3 py-2 mx-3 mt-3 mb-2 shrink-0 flex items-center gap-3 flex-wrap">
+        <span className="text-gray-700 dark:text-gray-200">{response?.model ?? req.model}</span>
         {inputTokens !== undefined && (
-          <span className="text-gray-400">
-            in: <span className="text-gray-600">{inputTokens.toLocaleString()}</span>
+          <span className="text-gray-400 dark:text-gray-500">
+            in: <span className="text-gray-600 dark:text-gray-300">{inputTokens.toLocaleString()}</span>
           </span>
         )}
         {outputTokens !== undefined && (
-          <span className="text-gray-400">
-            out: <span className="text-gray-600">{outputTokens.toLocaleString()}</span>
+          <span className="text-gray-400 dark:text-gray-500">
+            out: <span className="text-gray-600 dark:text-gray-300">{outputTokens.toLocaleString()}</span>
           </span>
         )}
       </div>
@@ -321,12 +321,17 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
       <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2">
         {/* System prompt */}
         {systemText && (
-          <CollapsibleSection title="System"  defaultOpen={false}>
-            <pre
-              className="text-gray-600 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words"
-            >
-              {systemText}
-            </pre>
+          <CollapsibleSection title="System" defaultOpen={false}>
+            <div className="relative group">
+              <div className="sticky top-0 flex justify-end pointer-events-none">
+                <div className="pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                  <CopyBtn text={systemText} className="m-1 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600" />
+                </div>
+              </div>
+              <pre className="text-gray-600 dark:text-gray-300 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words -mt-[30px]">
+                {systemText}
+              </pre>
+            </div>
           </CollapsibleSection>
         )}
 
@@ -356,7 +361,7 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
         )}
 
         {!response && (
-          <div className="text-gray-400 text-center py-4">
+          <div className="text-gray-400 dark:text-gray-500 text-center py-4">
             No response data available.
           </div>
         )}

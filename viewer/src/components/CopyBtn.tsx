@@ -22,8 +22,8 @@ export default function CopyBtn({ text, className = "" }: Props) {
       className={`
         p-1 rounded transition-colors cursor-pointer
         ${copied
-          ? "text-green-600 bg-green-50"
-          : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+          ? "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-950"
+          : "text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700"
         }
         ${className}
       `}

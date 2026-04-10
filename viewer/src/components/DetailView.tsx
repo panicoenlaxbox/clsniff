@@ -17,10 +17,10 @@ interface Props {
 type Tab = "request" | "response" | "claude";
 
 function statusColor(status: number): string {
-  if (status >= 500) return "text-red-600";
-  if (status >= 400) return "text-orange-500";
-  if (status >= 300) return "text-blue-600";
-  return "text-green-600";
+  if (status >= 500) return "text-red-600 dark:text-red-400";
+  if (status >= 400) return "text-orange-500 dark:text-orange-400";
+  if (status >= 300) return "text-blue-600 dark:text-blue-400";
+  return "text-green-600 dark:text-green-400";
 }
 
 function formatTimestamp(ts: string): string {
@@ -51,10 +51,10 @@ function BodySection({
   onToggle: () => void;
 }) {
   return (
-    <div className="border border-gray-200 rounded">
+    <div className="border border-gray-200 dark:border-gray-700 rounded">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-1 px-3 py-2 font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 hover:bg-gray-100 cursor-pointer rounded-t"
+        className="w-full flex items-center gap-1 px-3 py-2 font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-t"
       >
         <svg
           width="12"
@@ -70,7 +70,7 @@ function BodySection({
       {open && (
         <div className="p-2">
           {body === null || body === undefined ? (
-            <span className="font-mono text-gray-400 px-3 py-2 block">null</span>
+            <span className="font-mono text-gray-400 dark:text-gray-500 px-3 py-2 block">null</span>
           ) : (
             <JsonBlock data={body} wordWrap={wordWrap} />
           )}
@@ -82,11 +82,11 @@ function BodySection({
 
 function PropRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start gap-2 px-3 py-1.5 hover:bg-gray-50 group">
-      <span className="text-gray-400 uppercase tracking-wider shrink-0 w-20 pt-0.5">
+    <div className="flex items-start gap-2 px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 group">
+      <span className="text-gray-400 dark:text-gray-500 uppercase tracking-wider shrink-0 w-20 pt-0.5">
         {label}
       </span>
-      <span className="text-gray-700 flex-1 break-all">
+      <span className="text-gray-700 dark:text-gray-200 flex-1 break-all">
         {value}
       </span>
       <div className="opacity-0 group-hover:opacity-100 shrink-0 -my-0.5">
@@ -103,7 +103,6 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
   const [propsOpen, setPropsOpen] = useState(false);
   const propsRef = useRef<HTMLDivElement>(null);
 
-  // Close properties panel on outside click
   useEffect(() => {
     if (!propsOpen) return;
     const handler = (e: MouseEvent) => {
@@ -115,8 +114,6 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
     return () => document.removeEventListener("mousedown", handler);
   }, [propsOpen]);
 
-  // If user is on the Claude tab and switches to a non-Claude entry, fall back to request.
-  // Only act when entry is loaded (not null) — null means it's still loading.
   useEffect(() => {
     if (tab === "claude" && entry !== null && !isClaudeEntry(entry)) {
       setTab("request");
@@ -125,7 +122,7 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
 
   if (!entry || !summary) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400">
+      <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500">
         Select an entry to inspect
       </div>
     );
@@ -146,18 +143,25 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
     ? `${entry.response.status} ${entry.response.status_reason}`
     : String(entry.response.status);
 
+  const iconBtn = (active: boolean) =>
+    `p-1 rounded cursor-pointer transition-colors ${
+      active
+        ? "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-950"
+        : "text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700"
+    }`;
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Tab bar */}
-      <div className="flex items-center border-b border-gray-200 bg-white shrink-0 px-2 gap-1">
+      <div className="flex items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shrink-0 px-2 gap-1">
         {tabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`px-3 py-2 font-medium cursor-pointer transition-colors border-b-2 -mb-px
               ${tab === t
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               }`}
           >
             {tabLabels[t]}
@@ -169,7 +173,7 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
           href={`/api/sessions/${encodeURIComponent(summary.sessionName)}/entries/${encodeURIComponent(summary.filename)}?download=true`}
           download={summary.filename}
           title="Download JSON file"
-          className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          className={iconBtn(false)}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
             <path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/>
@@ -177,14 +181,12 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
           </svg>
         </a>
         {/* Word wrap toggle */}
+        {/* Word wrap toggle */}
         <button
           onClick={onToggleWrap}
+          disabled={tab === "claude"}
           title={wordWrap ? "Disable word wrap" : "Enable word wrap"}
-          className={`p-1 rounded cursor-pointer transition-colors ${
-            wordWrap
-              ? "text-blue-600 bg-blue-50"
-              : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-          }`}
+          className={`${iconBtn(wordWrap)} disabled:opacity-30 disabled:cursor-default`}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
             <path d="M1 3.5A.5.5 0 0 1 1.5 3h13a.5.5 0 0 1 0 1h-13A.5.5 0 0 1 1 3.5zM1 7.5A.5.5 0 0 1 1.5 7H10a3 3 0 0 1 0 6H8.5a.5.5 0 0 1 0-1H10a2 2 0 0 0 0-4H1.5A.5.5 0 0 1 1 7.5zm9.854 2.646a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708-.708l1.146-1.146-1.146-1.146a.5.5 0 0 1 .708-.708l1.5 1.5zM1 11.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z" />
@@ -192,21 +194,13 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
         </button>
         {/* Entry properties */}
         <div className="relative" ref={propsRef}>
-          <button
-            onClick={() => setPropsOpen((o) => !o)}
-            title="Entry properties"
-            className={`p-1 rounded cursor-pointer transition-colors ${
-              propsOpen
-                ? "text-blue-600 bg-blue-50"
-                : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-            }`}
-          >
+          <button onClick={() => setPropsOpen((o) => !o)} title="Entry properties" className={iconBtn(propsOpen)}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm6.5-.25A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/>
             </svg>
           </button>
           {propsOpen && (
-            <div className="absolute top-full right-0 mt-1 w-96 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+            <div className="absolute top-full right-0 mt-1 w-96 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20">
               <div className="py-1.5">
                 <PropRow label="Timestamp" value={formatTimestamp(entry.timestamp)} />
                 <PropRow label="Duration" value={`${entry.duration_ms.toFixed(0)} ms`} />
@@ -225,53 +219,51 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
       {tab === "claude" ? (
         <ClaudeView entry={entry} wordWrap={wordWrap} />
       ) : (
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {tab === "request" ? (
-          <>
-            {/* Request metadata bar */}
-            <div className="font-mono text-gray-600 bg-gray-50 rounded px-3 py-2 break-all">
-              <span className="text-gray-800 mr-2">
-                {entry.request.method}
-              </span>
-              {entry.request.url}
-            </div>
-            <HeadersSection
-              headers={entry.request.headers}
-              wordWrap={wordWrap}
-              open={headersOpen}
-              onToggle={() => setHeadersOpen((o) => !o)}
-            />
-            <BodySection
-              body={entry.request.body}
-              wordWrap={wordWrap}
-              open={bodyOpen}
-              onToggle={() => setBodyOpen((o) => !o)}
-            />
-          </>
-        ) : (
-          <>
-            {/* Response status bar */}
-            <div className="font-mono text-gray-600 bg-gray-50 rounded px-3 py-2">
-              <span className={`mr-2 ${statusColor(entry.response.status)}`}>
-                {entry.response.status}
-              </span>
-              {entry.response.status_reason}
-            </div>
-            <HeadersSection
-              headers={entry.response.headers}
-              wordWrap={wordWrap}
-              open={headersOpen}
-              onToggle={() => setHeadersOpen((o) => !o)}
-            />
-            <BodySection
-              body={entry.response.body}
-              wordWrap={wordWrap}
-              open={bodyOpen}
-              onToggle={() => setBodyOpen((o) => !o)}
-            />
-          </>
-        )}
-      </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-white dark:bg-gray-900">
+          {tab === "request" ? (
+            <>
+              <div className="font-mono text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded px-3 py-2 break-all">
+                <span className="text-gray-800 dark:text-gray-100 mr-2">
+                  {entry.request.method}
+                </span>
+                {entry.request.url}
+              </div>
+              <HeadersSection
+                headers={entry.request.headers}
+                wordWrap={wordWrap}
+                open={headersOpen}
+                onToggle={() => setHeadersOpen((o) => !o)}
+              />
+              <BodySection
+                body={entry.request.body}
+                wordWrap={wordWrap}
+                open={bodyOpen}
+                onToggle={() => setBodyOpen((o) => !o)}
+              />
+            </>
+          ) : (
+            <>
+              <div className="font-mono text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded px-3 py-2">
+                <span className={`mr-2 ${statusColor(entry.response.status)}`}>
+                  {entry.response.status}
+                </span>
+                {entry.response.status_reason}
+              </div>
+              <HeadersSection
+                headers={entry.response.headers}
+                wordWrap={wordWrap}
+                open={headersOpen}
+                onToggle={() => setHeadersOpen((o) => !o)}
+              />
+              <BodySection
+                body={entry.response.body}
+                wordWrap={wordWrap}
+                open={bodyOpen}
+                onToggle={() => setBodyOpen((o) => !o)}
+              />
+            </>
+          )}
+        </div>
       )}
     </div>
   );

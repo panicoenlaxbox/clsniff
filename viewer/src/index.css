@@ -4,6 +4,8 @@
   --font-mono: 'Cascadia Code', 'Fira Code', Consolas, monospace;
 }
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -18,4 +20,23 @@ body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Syntax highlighting color tokens (GitHub Light / GitHub Dark) */
+:root {
+  --c-key:     #0a3069;
+  --c-string:  #116329;
+  --c-number:  #0550ae;
+  --c-keyword: #cf222e;
+  --c-punct:   #24292e;
+  --c-bg:      #f6f8fa;
+}
+
+.dark {
+  --c-key:     #79c0ff;
+  --c-string:  #7ee787;
+  --c-number:  #79c0ff;
+  --c-keyword: #ff7b72;
+  --c-punct:   #e6edf3;
+  --c-bg:      #161b22;
 }

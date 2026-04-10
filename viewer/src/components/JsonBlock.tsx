@@ -7,13 +7,13 @@ interface Props {
   wordWrap: boolean;
 }
 
-// GitHub-inspired colors (matches themes.github from prism-react-renderer)
+// Colors come from CSS variables defined in index.css (light + dark themes)
 const C = {
-  key: "#0a3069",
-  string: "#116329",
-  number: "#0550ae",
-  keyword: "#cf222e", // true, false, null
-  punct: "#24292e",
+  key:     "var(--c-key)",
+  string:  "var(--c-string)",
+  number:  "var(--c-number)",
+  keyword: "var(--c-keyword)",
+  punct:   "var(--c-punct)",
 };
 
 function serializeForModal(value: unknown): string {
@@ -92,7 +92,7 @@ function JsonNode({ value, depth, isLast, onClickKey }: NodeProps): React.ReactN
             {pad(depth + 1)}
             <span
               style={{ color: C.key, cursor: "pointer" }}
-              className="hover:underline decoration-dotted hover:bg-blue-50 rounded"
+              className="hover:underline decoration-dotted hover:bg-blue-50 dark:hover:bg-blue-950 rounded"
               onClick={() => onClickKey(key, val)}
               title="Click to expand"
             >
@@ -119,7 +119,6 @@ function JsonNode({ value, depth, isLast, onClickKey }: NodeProps): React.ReactN
 export default function JsonBlock({ data, wordWrap }: Props) {
   const [modal, setModal] = useState<{ title: string; content: string } | null>(null);
 
-  // Try to parse string data as JSON
   let parsed: unknown = data;
   if (typeof data === "string") {
     try {
@@ -134,15 +133,14 @@ export default function JsonBlock({ data, wordWrap }: Props) {
 
   return (
     <div className="relative group">
-      {/* Hover-reveal copy button */}
       <div className="sticky top-0 flex justify-end pointer-events-none">
         <div className="pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
-          <CopyBtn text={copyText} className="m-1 bg-white shadow-sm border border-gray-200" />
+          <CopyBtn text={copyText} className="m-1 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600" />
         </div>
       </div>
 
       <pre
-        className={`p-3 rounded overflow-auto bg-[#f6f8fa] ${
+        className={`p-3 rounded overflow-auto bg-[var(--c-bg)] ${
           wordWrap ? "whitespace-pre-wrap break-all" : "whitespace-pre"
         }`}
         style={{

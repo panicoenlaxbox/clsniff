@@ -24,7 +24,7 @@ export default function SearchBar({ total, filtered, onSearch }: Props) {
     <div className="flex items-center gap-2">
       <div className="relative">
         <svg
-          className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"
+          className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
           width="13"
           height="13"
           viewBox="0 0 16 16"
@@ -37,12 +37,14 @@ export default function SearchBar({ total, filtered, onSearch }: Props) {
           placeholder="Search entries..."
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          className="pl-7 pr-3 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-500 w-56"
+          className="pl-7 pr-3 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-500 w-56
+            bg-white text-gray-800 placeholder-gray-400
+            dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-500 dark:focus:border-blue-400"
         />
         {value && (
           <button
             onClick={() => setValue("")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer dark:text-gray-500 dark:hover:text-gray-300"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
               <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z" />
@@ -50,7 +52,7 @@ export default function SearchBar({ total, filtered, onSearch }: Props) {
           </button>
         )}
       </div>
-      <span className="text-gray-500 whitespace-nowrap">
+      <span className="text-gray-500 dark:text-gray-400 whitespace-nowrap">
         {hasFilter ? `${filtered} / ${total}` : `${total} entries`}
       </span>
     </div>
