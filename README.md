@@ -223,10 +223,16 @@ npm run dev -- --viewer -- claude
 npm run dev -- --viewer
 ```
 
-To work on the viewer UI:
+To work on the viewer UI, open two terminals:
 
+**Terminal 1** — watch and recompile `clsniff` on every change (outputs to `dist/`):
 ```bash
-cd viewer
-npm install
-npm run dev   # Vite dev server with HMR at http://localhost:5173
+npm run watch
 ```
+
+**Terminal 2** — run the standalone viewer, which serves the pre-built viewer from `dist/` and picks up any captured sessions:
+```bash
+npm run dev -- --viewer
+```
+
+`npm run watch` keeps the TypeScript compilation in sync so changes to `src/` are immediately reflected when you restart the viewer in terminal 2.
