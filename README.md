@@ -209,6 +209,8 @@ npm run dev -- --viewer -- claude
 npm run dev -- --viewer
 ```
 
+### Viewer
+
 To work on the viewer UI, open two terminals:
 
 **Terminal 1** — watch and recompile `clsniff` on every change (outputs to `dist/`):
