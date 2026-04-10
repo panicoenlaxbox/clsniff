@@ -109,24 +109,6 @@ clsniff --viewer --no-open -- claude
 
 By default the browser opens automatically at `http://localhost:<port>`. Pass `--no-open` to suppress this.
 
-### Viewer features
-
-- **Session selector** — switch between one or more captured sessions; entries from multiple sessions can be shown side by side
-- **Live updates** — new entries stream in via SSE while the command is still running
-- **Search** — filter entries by URL, method, status, or body content
-- **Resizable split pane** — adjust the entry list / detail split to taste
-- **Request / Response tabs** — inspect headers and body for each side; bodies are pretty-printed JSON
-- **Claude tab** — for `POST /v1/messages` entries, a dedicated tab renders the conversation in a readable chat-style layout:
-  - Metadata bar: model name, input/output token counts
-  - System prompt (collapsible, collapsed by default)
-  - Previous context messages (collapsible, collapsed by default)
-  - Last user message and assistant response (expanded by default)
-  - Tool use blocks with collapsible JSON input
-  - Tool result blocks
-- **Entry properties panel** — timestamp, duration, session, method, URL, status, and full file path (with per-field copy buttons)
-- **Word wrap toggle** — toggle long-line wrapping for JSON bodies and headers
-- **Dark mode** — cycles between light, dark, and system preference; persisted in `localStorage`
-- **Download** — download any entry as a JSON file
 
 ## Output format
 
