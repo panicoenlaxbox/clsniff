@@ -12,11 +12,7 @@ Wrap any command with `clsniff` and every HTTP/HTTPS request it makes will be ca
 ## Prerequisites
 
 - **Node.js** 22 or later
-- **[mitmproxy](https://mitmproxy.org/)** — the proxy engine. Install with:
-  ```bash
-  pip install mitmproxy
-  ```
-  Or download the standalone installer from [mitmproxy.org/downloads](https://mitmproxy.org/downloads/).
+- **[mitmproxy](https://mitmproxy.org/)** — the proxy engine (`mitmdump` must be in PATH). See the [installation guide](https://docs.mitmproxy.org/stable/overview/installation/) for all available options.
 
 ## How it works
 
@@ -43,7 +39,7 @@ npm install -g clsniff
 clsniff --mask-headers "authorization" -- claude
 ```
 
-Intercepted requests are saved to `~/.clsniff/logs/` as JSON files, one per request/response pair.
+Intercepted requests are saved to `~/.clsniff/` as JSON files, one per request/response pair.
 
 ## Usage
 
@@ -57,18 +53,18 @@ The `--` separator is required to separate `clsniff` options from the wrapped co
 
 | Flag | Description | Default |
 |---|---|---|
-| `--output-dir <path>` | Directory where session log folders are created | `~/.clsniff/logs` |
+| `--output-dir <path>` | Directory where session log folders are created | `~/.clsniff` |
 | `--name <name>` | Name for the session folder instead of the auto-generated timestamp | (timestamp) |
 | `--port <number>` | Port for the local proxy (0 = OS auto-assign) | `0` |
 | `--mask-headers <names>` | Comma-separated header names to redact in JSON output. Can be repeated. | (none) |
-| `--exclude <hosts>` | Comma-separated hosts to bypass interception entirely (NO_PROXY format). Bypassed hosts get a direct TCP tunnel — no MITM, no logging. Can be repeated. Example: `localhost,.internal.example.com,telemetry.anthropic.com` | (none) |
+| `--exclude <hosts>` | Comma-separated hosts to bypass interception entirely (NO_PROXY format). Bypassed hosts get a direct TCP tunnel — no MITM, no logging. Can be repeated. Example: `example.com,.datadoghq.com` | (none) |
 | `--install-cert` | Install mitmproxy's CA certificate in the system trust store | (off) |
 
 ## Examples
 
 **Intercept all traffic:**
 ```bash
-clsniff -- claude
+clsniff -- claude --dangerously-skip-command
 ```
 
 **Redact the API key:**
@@ -78,15 +74,15 @@ clsniff --mask-headers "authorization" -- claude
 
 **Bypass telemetry hosts:**
 ```bash
-clsniff --exclude "telemetry.anthropic.com,.sentry.io" -- claude
+clsniff --exclude ".datadoghq.com" -- claude
 ```
 
 ## Output format
 
-Each `clsniff` invocation creates a new timestamped folder under `~/.clsniff/logs/` (one folder per run):
+Each `clsniff` invocation creates a new timestamped folder under `~/.clsniff/` (one folder per run):
 
 ```
-~/.clsniff/logs/
+~/.clsniff/
   2026-04-09T14-30-00-000Z/
     1744200600123_1.json
     1744200601456_2.json
@@ -182,8 +178,6 @@ Regardless of system-level trust, `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, and `R
 ```bash
 git clone https://github.com/panicoenlaxbox/clsniff.git
 cd clsniff
-pip install mitmproxy   # required — mitmdump must be in PATH
 npm install
-npm link                # makes `clsniff` available globally
-npm run dev -- -- curl https://httpbin.org/get
+npm run dev -- -- claude
 ```

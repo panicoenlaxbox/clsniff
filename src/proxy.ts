@@ -123,6 +123,10 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     stdio: ["ignore", "ignore", "pipe"],
   });
 
+  mitmdump.stderr?.on("data", (chunk: Buffer) => {
+    options.onError?.(chunk.toString().trim());
+  });
+
   return new Promise((resolve, reject) => {
     let settled = false;
 
@@ -131,7 +135,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
         settled = true;
         const message =
           (err as NodeJS.ErrnoException).code === "ENOENT"
-            ? "mitmdump not found in PATH. Install it with: pip install mitmproxy"
+            ? "mitmdump not found in PATH. See https://docs.mitmproxy.org/stable/overview/installation/"
             : err.message;
         reject(new Error(message));
       } else {

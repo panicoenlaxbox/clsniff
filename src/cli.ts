@@ -1,10 +1,13 @@
-#!/usr/bin/env node
 import { Command, InvalidArgumentError } from "commander";
 import { spawn, spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { startProxy } from "./proxy.js";
+
+const { version } = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "../package.json"), "utf-8")
+) as { version: string };
 
 const program = new Command();
 
@@ -13,13 +16,13 @@ program
   .description(
     "Wrap any console command and intercept its HTTP/HTTPS traffic, saving each request/response pair as a JSON file."
   )
-  .version("1.1.0")
-  .argument("<command>", "Command to run (after --)")
+  .version(version)
+  .argument("[command]", "Command to run (after --)")
   .argument("[args...]", "Arguments forwarded to the command")
   .option(
     "--output-dir <path>",
     "Directory where session log folders are created",
-    path.join(os.homedir(), ".clsniff", "logs")
+    path.join(os.homedir(), ".clsniff")
   )
   .option(
     "--port <number>",
@@ -46,7 +49,7 @@ program
   )
   .option(
     "--exclude <hosts>",
-    "Comma-separated hosts to bypass interception entirely (NO_PROXY format, e.g. localhost,.example.com,telemetry.anthropic.com). Can be repeated.",
+    "Comma-separated hosts to bypass interception entirely (NO_PROXY format, e.g. localhost,.example.com). Can be repeated.",
     (value: string, prev: string[]) =>
       prev.concat(value.split(",").map((s) => s.trim()).filter(Boolean)),
     [] as string[]
@@ -113,6 +116,13 @@ async function main(): Promise<void> {
   }
 
   const positional = program.args;
+
+  if (opts.installCert && !positional.length) {
+    const caCerPath = path.join(os.homedir(), ".mitmproxy", "mitmproxy-ca-cert.cer");
+    installCert(caCerPath);
+    process.exit(0);
+  }
+
   if (!positional.length) {
     process.stderr.write("[clsniff] error: no command provided.\n");
     program.help();
@@ -163,14 +173,15 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Install CA certificate on first run or when explicitly requested
-  const cerPath = path.join(os.homedir(), ".mitmproxy", "mitmproxy-ca-cert.cer");
+  // Install CA certificate on first run or when explicitly requested alongside a command
   if (proxyHandle.caIsNew || opts.installCert) {
-    installCert(cerPath);
+    const caCerPath = path.join(os.homedir(), ".mitmproxy", "mitmproxy-ca-cert.cer");
+    installCert(caCerPath);
   }
 
   log(`proxy listening on port ${proxyHandle.port}`);
   log(`session dir: ${sessionDir}`);
+  log(`options: ${JSON.stringify(opts)}`);
   log(`command: ${[command, ...commandArgs].join(" ")}`);
 
   // Environment variables injected into the child process
