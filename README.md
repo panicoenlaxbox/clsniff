@@ -235,4 +235,4 @@ npm run watch
 npm run dev -- --viewer
 ```
 
-`npm run watch` keeps the TypeScript compilation in sync so changes to `src/` are immediately reflected when you restart the viewer in terminal 2.
+`npm run watch` keeps the TypeScript compilation in sync so changes to `src/` are immediately reflected with a browser refresh.
