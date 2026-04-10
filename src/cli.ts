@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { Command, InvalidArgumentError } from "commander";
 import { spawn, spawnSync } from "child_process";
 import * as fs from "fs";
