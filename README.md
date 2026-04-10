@@ -94,20 +94,6 @@ clsniff --viewer
 clsniff --viewer --no-open -- claude
 ```
 
-## Web viewer
-
-`clsniff` includes a built-in web viewer for browsing captured sessions. Start it with `--viewer`:
-
-- **Alongside a command** — the viewer opens while your command runs and is pre-selected to the active session:
-  ```bash
-  clsniff --viewer -- claude
-  ```
-- **Standalone** — browse all previously captured sessions with no command:
-  ```bash
-  clsniff --viewer
-  ```
-
-By default the browser opens automatically at `http://localhost:<port>`. Pass `--no-open` to suppress this.
 
 
 ## Output format
