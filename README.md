@@ -59,6 +59,8 @@ The `--` separator is required to separate `clsniff` options from the wrapped co
 | `--mask-headers <names>` | Comma-separated header names to redact in JSON output. Can be repeated. | (none) |
 | `--exclude <hosts>` | Comma-separated hosts to bypass interception entirely (NO_PROXY format). Bypassed hosts get a direct TCP tunnel — no MITM, no logging. Can be repeated. Example: `example.com,.datadoghq.com` | (none) |
 | `--install-cert` | Install mitmproxy's CA certificate in the system trust store | (off) |
+| `--viewer` | Start the web-based log viewer | (off) |
+| `--no-open` | Do not auto-open the browser when starting the viewer | (off) |
 
 ## Examples
 
@@ -76,6 +78,55 @@ clsniff --mask-headers "authorization" -- claude
 ```bash
 clsniff --exclude ".datadoghq.com" -- claude
 ```
+
+**Intercept traffic and open the viewer:**
+```bash
+clsniff --viewer --mask-headers "authorization" -- claude
+```
+
+**Browse existing sessions (standalone viewer, no command needed):**
+```bash
+clsniff --viewer
+```
+
+**Start the viewer without auto-opening the browser:**
+```bash
+clsniff --viewer --no-open -- claude
+```
+
+## Web viewer
+
+`clsniff` includes a built-in web viewer for browsing captured sessions. Start it with `--viewer`:
+
+- **Alongside a command** — the viewer opens while your command runs and is pre-selected to the active session:
+  ```bash
+  clsniff --viewer -- claude
+  ```
+- **Standalone** — browse all previously captured sessions with no command:
+  ```bash
+  clsniff --viewer
+  ```
+
+By default the browser opens automatically at `http://localhost:<port>`. Pass `--no-open` to suppress this.
+
+### Viewer features
+
+- **Session selector** — switch between one or more captured sessions; entries from multiple sessions can be shown side by side
+- **Live updates** — new entries stream in via SSE while the command is still running
+- **Search** — filter entries by URL, method, status, or body content
+- **Resizable split pane** — adjust the entry list / detail split to taste
+- **Request / Response tabs** — inspect headers and body for each side; bodies are pretty-printed JSON
+- **Claude tab** — for `POST /v1/messages` entries, a dedicated tab renders the conversation in a readable chat-style layout:
+  - Metadata bar: model name, input/output token counts
+  - System prompt (collapsible, collapsed by default)
+  - Previous context messages (collapsible, collapsed by default)
+  - Last user message and assistant response (expanded by default)
+  - Tool use blocks with collapsible JSON input
+  - Tool result blocks
+- **Entry properties panel** — timestamp, duration, session, method, URL, status, and full file path (with per-field copy buttons)
+- **Word wrap toggle** — toggle long-line wrapping for JSON bodies and headers
+- **Dark mode** — cycles between light, dark, and system preference; persisted in `localStorage`
+- **Download** — download any entry as a JSON file
 
 ## Output format
 
@@ -179,5 +230,21 @@ Regardless of system-level trust, `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, and `R
 git clone https://github.com/panicoenlaxbox/clsniff.git
 cd clsniff
 npm install
+
+# Run against a real command
 npm run dev -- -- claude
+
+# Run with the viewer
+npm run dev -- --viewer -- claude
+
+# Standalone viewer (browse existing sessions)
+npm run dev -- --viewer
+```
+
+To work on the viewer UI:
+
+```bash
+cd viewer
+npm install
+npm run dev   # Vite dev server with HMR at http://localhost:5173
 ```
