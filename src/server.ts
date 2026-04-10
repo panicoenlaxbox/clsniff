@@ -120,6 +120,7 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
       res.json({
         sessions,
         activeSession: options.activeSession ?? null,
+        outputDir: options.outputDir,
       });
     } catch (err) {
       res.status(500).json({ error: String(err) });

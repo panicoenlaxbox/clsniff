@@ -3,10 +3,11 @@ import type { Session, EntrySummary, Entry } from "./types";
 export async function fetchSessions(): Promise<{
   sessions: Session[];
   activeSession: string | null;
+  outputDir: string;
 }> {
   const res = await fetch("/api/sessions");
   if (!res.ok) throw new Error("Failed to fetch sessions");
-  return res.json() as Promise<{ sessions: Session[]; activeSession: string | null }>;
+  return res.json() as Promise<{ sessions: Session[]; activeSession: string | null; outputDir: string }>;
 }
 
 export async function fetchEntries(

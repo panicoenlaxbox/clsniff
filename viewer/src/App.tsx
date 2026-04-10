@@ -17,12 +17,14 @@ export default function App() {
   const [wordWrap, setWordWrap] = useState(false);
   const [leftWidth, setLeftWidth] = useState(40);
   const [totalUnfiltered, setTotalUnfiltered] = useState(0);
+  const [outputDir, setOutputDir] = useState("");
   const resizing = useRef(false);
 
   // ── Load sessions ───────────────────────────────────────────────────────────
   const loadSessions = useCallback(async () => {
     try {
-      const { sessions: list, activeSession } = await fetchSessions();
+      const { sessions: list, activeSession, outputDir: dir } = await fetchSessions();
+      setOutputDir(dir ?? "");
       setSessions(list);
       setSelectedSessions((prev) => {
         if (prev.length > 0) return prev;
@@ -187,6 +189,7 @@ export default function App() {
             summary={selectedSummary}
             wordWrap={wordWrap}
             onToggleWrap={() => setWordWrap((w) => !w)}
+            outputDir={outputDir}
           />
         </div>
       </div>

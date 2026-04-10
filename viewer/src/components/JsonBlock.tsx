@@ -146,7 +146,6 @@ export default function JsonBlock({ data, wordWrap }: Props) {
           wordWrap ? "whitespace-pre-wrap break-all" : "whitespace-pre"
         }`}
         style={{
-          fontFamily: "'Cascadia Code', 'Fira Code', Consolas, monospace",
           color: C.punct,
           marginTop: "-30px",
         }}
