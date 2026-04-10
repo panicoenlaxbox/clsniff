@@ -16,7 +16,7 @@ Wrap any command with `clsniff` and every HTTP/HTTPS request it makes will be ca
 
 ## How it works
 
-`clsniff` starts [mitmdump](https://docs.mitmproxy.org/stable/tools-mitmdump/) (mitmproxy's headless mode) as a subprocess and launches your command as a child process with [environment variables injected](#environment-variables) so it routes traffic through the proxy and trusts its CA certificate.
+`clsniff` starts `mitmdump`(mitmproxy's headless mode) as a subprocess and launches your command as a child process with [environment variables injected](#environment-variables) so it routes traffic through the proxy and trusts its CA certificate.
 
 When a request passes through the proxy, `clsniff`:
 
