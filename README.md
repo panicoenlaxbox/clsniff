@@ -32,11 +32,11 @@ The child process is completely unaware of the interception. Its `stdin`, `stdou
 
 ```bash
 # Run without installing
-npx -y clsniff@latest --mask-headers "authorization" -- claude
+npx -y clsniff@latest --viewer -- claude
 
 # Or install globally
 npm install -g clsniff
-clsniff --mask-headers "authorization" -- claude
+clsniff --viewer -- claude
 ```
 
 Intercepted requests are saved to `~/.clsniff/` as JSON files, one per request/response pair.
@@ -93,8 +93,6 @@ clsniff --viewer
 ```bash
 clsniff --viewer --no-open -- claude
 ```
-
-
 
 ## Output format
 
