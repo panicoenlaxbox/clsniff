@@ -62,6 +62,8 @@ The `--` separator is required to separate `clsniff` options from the wrapped co
 | `--viewer` | Start the web-based log viewer | (off) |
 | `--no-open` | Do not auto-open the browser when starting the viewer | (off) |
 
+> `--viewer` includes a Claude tab with enhanced support for parsing and displaying Claude-specific request/response formats, according to https://platform.claude.com/docs/en/api/messages/create
+
 ## Examples
 
 **Intercept all traffic:**
