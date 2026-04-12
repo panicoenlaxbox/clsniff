@@ -9,6 +9,8 @@ A zero-configuration HTTP/HTTPS traffic sniffer for command-line tools.
 
 Wrap any command with `clsniff` and every HTTP/HTTPS request it makes will be captured and saved to a JSON file — including full request/response headers and bodies (SSE responses are captured as an array of parsed events).
 
+![clsniff demo](clsniff.gif)
+
 ## Prerequisites
 
 - **Node.js** 22 or later
