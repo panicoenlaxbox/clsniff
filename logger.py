@@ -8,7 +8,13 @@ from urllib.parse import urlparse, parse_qs
 from mitmproxy import http
 
 SESSION_DIR = os.environ.get("CLSNIFF_SESSION_DIR", "")
+if SESSION_DIR:
+    os.makedirs(SESSION_DIR, exist_ok=True)
+
 LOG_FILE = os.environ.get("CLSNIFF_LOG_FILE", "")
+if not LOG_FILE and SESSION_DIR:
+    LOG_FILE = os.path.join(SESSION_DIR, "clsniff.log")
+
 _mask_raw = os.environ.get("CLSNIFF_MASK_HEADERS", "")
 MASK_HEADERS = {h.lower() for h in _mask_raw.split(",") if h.strip()}
 
