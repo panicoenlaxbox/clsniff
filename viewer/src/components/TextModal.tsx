@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Highlight, themes } from "prism-react-renderer";
+import { WrapText, X } from "lucide-react";
 import CopyBtn from "./CopyBtn";
 
 interface Props {
@@ -75,18 +76,14 @@ export default function TextModal({ title, content, onClose }: Props) {
                   : "text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700"
               }`}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M1 3.5A.5.5 0 0 1 1.5 3h13a.5.5 0 0 1 0 1h-13A.5.5 0 0 1 1 3.5zM1 7.5A.5.5 0 0 1 1.5 7H10a3 3 0 0 1 0 6H8.5a.5.5 0 0 1 0-1H10a2 2 0 0 0 0-4H1.5A.5.5 0 0 1 1 7.5zm9.854 2.646a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708-.708l1.146-1.146-1.146-1.146a.5.5 0 0 1 .708-.708l1.5 1.5zM1 11.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/>
-              </svg>
+              <WrapText size={16} />
             </button>
             <CopyBtn text={displayContent} />
             <button
               onClick={onClose}
               className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/>
-              </svg>
+              <X size={16} />
             </button>
           </div>
         </div>

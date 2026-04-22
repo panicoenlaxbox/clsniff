@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import type { Entry, EntrySummary } from "../types";
+import { ChevronRight, Download, WrapText, Info } from "lucide-react";
 import HeadersSection from "./HeadersSection";
 import JsonBlock from "./JsonBlock";
 import ClaudeView from "./ClaudeView";
@@ -56,15 +57,7 @@ function BodySection({
         onClick={onToggle}
         className="w-full flex items-center gap-1 px-3 py-2 font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-t"
       >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 16 16"
-          fill="currentColor"
-          className={`transition-transform ${open ? "rotate-90" : ""}`}
-        >
-          <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L10.94 8 6.22 4.28a.75.75 0 0 1 0-1.06z" />
-        </svg>
+        <ChevronRight size={12} className={`transition-transform ${open ? "rotate-90" : ""}`} />
         Body
       </button>
       {open && (
@@ -175,10 +168,7 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
           title="Download JSON file"
           className={iconBtn(false)}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/>
-            <path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.97a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.779a.749.749 0 1 1 1.06-1.06l1.97 1.97Z"/>
-          </svg>
+          <Download size={16} />
         </a>
         {/* Word wrap toggle */}
         {/* Word wrap toggle */}
@@ -188,16 +178,12 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
           title={wordWrap ? "Disable word wrap" : "Enable word wrap"}
           className={`${iconBtn(wordWrap)} disabled:opacity-30 disabled:cursor-default`}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M1 3.5A.5.5 0 0 1 1.5 3h13a.5.5 0 0 1 0 1h-13A.5.5 0 0 1 1 3.5zM1 7.5A.5.5 0 0 1 1.5 7H10a3 3 0 0 1 0 6H8.5a.5.5 0 0 1 0-1H10a2 2 0 0 0 0-4H1.5A.5.5 0 0 1 1 7.5zm9.854 2.646a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708-.708l1.146-1.146-1.146-1.146a.5.5 0 0 1 .708-.708l1.5 1.5zM1 11.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z" />
-          </svg>
+          <WrapText size={16} />
         </button>
         {/* Entry properties */}
         <div className="relative" ref={propsRef}>
           <button onClick={() => setPropsOpen((o) => !o)} title="Entry properties" className={iconBtn(propsOpen)}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm6.5-.25A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/>
-            </svg>
+            <Info size={16} />
           </button>
           {propsOpen && (
             <div className="absolute top-full right-0 mt-1 w-96 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20">

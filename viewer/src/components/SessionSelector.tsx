@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Session } from "../types";
+import { List, ChevronDown } from "lucide-react";
 
 interface Props {
   sessions: Session[];
@@ -50,25 +51,12 @@ export default function SessionSelector({ sessions, selected, onChange }: Props)
         className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 cursor-pointer max-w-xs
           dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200"
       >
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 16 16"
-          fill="currentColor"
-          className="text-gray-500 dark:text-gray-400 shrink-0"
-        >
-          <path d="M1.75 2.5a.25.25 0 0 0-.25.25v1.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-1.5a.25.25 0 0 0-.25-.25ZM0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v1.5A1.75 1.75 0 0 1 14.25 6H1.75A1.75 1.75 0 0 1 0 4.25Zm1.75 5.75a.25.25 0 0 0-.25.25v1.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-1.5a.25.25 0 0 0-.25-.25Zm-1.75.25C0 7.784.784 7 1.75 7h12.5c.966 0 1.75.784 1.75 1.75v1.5A1.75 1.75 0 0 1 14.25 12H1.75A1.75 1.75 0 0 1 0 10.25Z" />
-        </svg>
+        <List size={13} className="text-gray-500 dark:text-gray-400 shrink-0" />
         <span className="truncate">{displayLabel}</span>
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 16 16"
-          fill="currentColor"
+        <ChevronDown
+          size={10}
           className={`text-gray-400 dark:text-gray-500 shrink-0 ml-1 transition-transform ${open ? "rotate-180" : ""}`}
-        >
-          <path d="M4.427 7.427l3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427z" />
-        </svg>
+        />
       </button>
 
       {open && (

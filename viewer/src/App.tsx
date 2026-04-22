@@ -1,34 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Entry, EntrySummary, Session } from "./types";
-import { fetchEntry, fetchEntries, fetchSessions } from "./api";
+import { fetchEntry, fetchEntries, fetchSessions, fetchLoggingStatus, setLoggingPaused } from "./api";
+import { Sun, Moon, Monitor } from "lucide-react";
 import SessionSelector from "./components/SessionSelector";
 import SearchBar from "./components/SearchBar";
 import EntryTable from "./components/EntryTable";
 import DetailView from "./components/DetailView";
+import RecordingToggle from "./components/RecordingToggle";
+import DisconnectedOverlay from "./components/DisconnectedOverlay";
 import { useTheme } from "./hooks/useTheme";
 import type { Theme } from "./hooks/useTheme";
 
 function ThemeIcon({ theme }: { theme: Theme }) {
-  if (theme === "light") {
-    return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"/>
-      </svg>
-    );
-  }
-  if (theme === "dark") {
-    return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
-      </svg>
-    );
-  }
-  // system
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M0 4s0-2 2-2h12s2 0 2 2v6s0 2-2 2h-4c0 .667.083 1.167.25 1.5H11a.5.5 0 0 1 0 1H5a.5.5 0 0 1 0-1h.75c.167-.333.25-.833.25-1.5H2s-2 0-2-2V4zm1.398-.855a.758.758 0 0 0-.254.302A1.46 1.46 0 0 0 1 4.01V10c0 .325.078.502.145.602.07.105.17.188.302.254a1.464 1.464 0 0 0 .538.143L2.01 11H14c.325 0 .502-.078.602-.145a.758.758 0 0 0 .254-.302 1.464 1.464 0 0 0 .143-.538L15 9.99V4c0-.325-.078-.502-.145-.602a.757.757 0 0 0-.302-.254A1.46 1.46 0 0 0 13.99 3H2c-.325 0-.502.078-.602.145z"/>
-    </svg>
-  );
+  if (theme === "light") return <Sun size={16} />;
+  if (theme === "dark") return <Moon size={16} />;
+  return <Monitor size={16} />;
 }
 
 export default function App() {
@@ -44,6 +30,8 @@ export default function App() {
   const [leftWidth, setLeftWidth] = useState(40);
   const [totalUnfiltered, setTotalUnfiltered] = useState(0);
   const [outputDir, setOutputDir] = useState("");
+  const [loggingPaused, setLoggingPausedState] = useState(false);
+  const [connected, setConnected] = useState(true);
   const resizing = useRef(false);
 
   // ── Load sessions ───────────────────────────────────────────────────────────
@@ -68,6 +56,20 @@ export default function App() {
   useEffect(() => {
     void loadSessions();
   }, [loadSessions]);
+
+  useEffect(() => {
+    fetchLoggingStatus().then((s) => setLoggingPausedState(s.paused)).catch(() => {});
+  }, []);
+
+  const handleToggleLogging = useCallback(async () => {
+    const next = !loggingPaused;
+    setLoggingPausedState(next);
+    try {
+      await setLoggingPaused(next);
+    } catch {
+      setLoggingPausedState(!next);
+    }
+  }, [loggingPaused]);
 
   // ── Load entries (with optional server-side search) ─────────────────────────
   const loadEntries = useCallback(async (sessionNames: string[], search: string) => {
@@ -99,6 +101,10 @@ export default function App() {
   // ── SSE for live updates (only when not searching) ──────────────────────────
   useEffect(() => {
     const es = new EventSource("/api/events");
+    es.onopen = () => setConnected(true);
+    es.onerror = () => {
+      if (es.readyState !== EventSource.OPEN) setConnected(false);
+    };
     es.onmessage = (e: MessageEvent<string>) => {
       try {
         const msg = JSON.parse(e.data) as {
@@ -176,6 +182,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-900 overflow-hidden">
+      {!connected && <DisconnectedOverlay />}
       {/* Header */}
       <header className="flex items-center gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shrink-0">
         <SessionSelector
@@ -189,6 +196,7 @@ export default function App() {
           onSearch={handleSearch}
         />
         <div className="flex-1" />
+        <RecordingToggle paused={loggingPaused} onToggle={() => void handleToggleLogging()} />
         <button
           onClick={cycle}
           title={themeTitle}

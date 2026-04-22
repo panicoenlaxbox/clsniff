@@ -40,6 +40,17 @@ def _log(msg: str) -> None:
         pass
 
 
+def _log_request(method: str, url: str, status: int, suffix: str = "") -> None:
+    try:
+        parsed = urlparse(url)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        path_part = parsed.path or "/"
+        trail = f" {suffix}" if suffix else ""
+        _log(f"{method} {origin}{path_part} {status}{trail}")
+    except Exception:
+        pass
+
+
 def _mask(headers: dict) -> dict:
     # Normalize header names to lowercase (consistent with Node.js http module behaviour)
     # and replace masked header values with "***".
@@ -142,6 +153,11 @@ def response(flow: http.HTTPFlow) -> None:
         },
     }
 
+    paused = os.path.join(SESSION_DIR, ".paused")
+    if os.path.exists(paused):
+        _log_request(flow.request.method, url, flow.response.status_code, "paused")
+        return
+
     ts_ms = int(time.time() * 1000)
     filename = os.path.join(SESSION_DIR, f"{ts_ms}_{entry_id}.json")
     try:
@@ -150,11 +166,5 @@ def response(flow: http.HTTPFlow) -> None:
     except Exception:
         return
 
-    try:
-        parsed_url = urlparse(url)
-        origin = f"{parsed_url.scheme}://{parsed_url.netloc}"
-        path_part = parsed_url.path or "/"
-        file_uri = "file:///" + filename.replace("\\", "/").lstrip("/")
-        _log(f"{flow.request.method} {origin}{path_part} {flow.response.status_code} {file_uri}")
-    except Exception:
-        pass
+    file_uri = "file:///" + filename.replace("\\", "/").lstrip("/")
+    _log_request(flow.request.method, url, flow.response.status_code, file_uri)

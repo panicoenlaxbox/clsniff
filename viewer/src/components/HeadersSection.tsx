@@ -1,4 +1,5 @@
 import JsonBlock from "./JsonBlock";
+import { ChevronRight } from "lucide-react";
 
 interface Props {
   headers: Record<string, string>;
@@ -8,17 +9,7 @@ interface Props {
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 16 16"
-      fill="currentColor"
-      className={`transition-transform ${open ? "rotate-90" : ""}`}
-    >
-      <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L10.94 8 6.22 4.28a.75.75 0 0 1 0-1.06z" />
-    </svg>
-  );
+  return <ChevronRight size={12} className={`transition-transform ${open ? "rotate-90" : ""}`} />;
 }
 
 export default function HeadersSection({ headers, wordWrap, open, onToggle }: Props) {

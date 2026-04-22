@@ -31,3 +31,15 @@ export async function fetchEntry(
   if (!res.ok) throw new Error("Failed to fetch entry");
   return res.json() as Promise<Entry>;
 }
+
+export async function fetchLoggingStatus(): Promise<{ paused: boolean }> {
+  const res = await fetch("/api/logging/status");
+  if (!res.ok) throw new Error("Failed to fetch logging status");
+  return res.json() as Promise<{ paused: boolean }>;
+}
+
+export async function setLoggingPaused(paused: boolean): Promise<{ paused: boolean }> {
+  const res = await fetch(paused ? "/api/logging/pause" : "/api/logging/resume", { method: "POST" });
+  if (!res.ok) throw new Error("Failed to update logging state");
+  return res.json() as Promise<{ paused: boolean }>;
+}

@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import type { EntrySummary } from "../types";
+import { ChevronsUpDown, ChevronUp, ChevronDown } from "lucide-react";
 
 interface Props {
   entries: EntrySummary[];
@@ -64,22 +65,10 @@ function pathFromUrl(url: string): string {
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
-  if (!active) {
-    return (
-      <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="text-gray-300 dark:text-gray-600 ml-0.5 shrink-0">
-        <path d="M3.5 3.5a.5.5 0 0 0-1 0v8.793l-1.146-1.147a.5.5 0 0 0-.708.708l2 1.999.007.007a.497.497 0 0 0 .7-.006l2-2a.5.5 0 0 0-.707-.708L3.5 12.293V3.5zm4 .5a.5.5 0 0 1 0-1h1a.5.5 0 0 1 0 1h-1zm0 3a.5.5 0 0 1 0-1h3a.5.5 0 0 1 0 1h-3zm0 3a.5.5 0 0 1 0-1h5a.5.5 0 0 1 0 1h-5z" />
-      </svg>
-    );
-  }
-  return dir === "asc" ? (
-    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="text-blue-500 dark:text-blue-400 ml-0.5 shrink-0">
-      <path d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4z"/>
-    </svg>
-  ) : (
-    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="text-blue-500 dark:text-blue-400 ml-0.5 shrink-0">
-      <path d="M8 12a.5.5 0 0 0 .5-.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 0 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 .5.5z"/>
-    </svg>
-  );
+  if (!active) return <ChevronsUpDown size={10} className="text-gray-300 dark:text-gray-600 ml-0.5 shrink-0" />;
+  return dir === "asc"
+    ? <ChevronDown size={10} className="text-blue-500 dark:text-blue-400 ml-0.5 shrink-0" />
+    : <ChevronUp size={10} className="text-blue-500 dark:text-blue-400 ml-0.5 shrink-0" />;
 }
 
 export default function EntryTable({ entries, selectedKey, onSelect, multiSession }: Props) {

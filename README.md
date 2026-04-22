@@ -210,19 +210,3 @@ npm run dev -- --viewer -- claude
 # Standalone viewer (browse existing sessions)
 npm run dev -- --viewer
 ```
-
-### Viewer
-
-To work on the viewer UI, open two terminals:
-
-**Terminal 1** — watch and recompile `clsniff` on every change (outputs to `dist/`):
-```bash
-npm run watch
-```
-
-**Terminal 2** — run the standalone viewer, which serves the pre-built viewer from `dist/` and picks up any captured sessions:
-```bash
-npm run dev -- --viewer
-```
-
-`npm run watch` keeps the TypeScript compilation in sync so changes to `src/` are immediately reflected with a browser refresh.

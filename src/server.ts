@@ -113,6 +113,37 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
     app.use(express.static(viewerDist));
   }
 
+  app.use(express.json());
+
+  let paused = false;
+
+  function activeSessionDir(): string | null {
+    if (!options.activeSession) return null;
+    const dir = path.join(options.outputDir, options.activeSession);
+    return fs.existsSync(dir) ? dir : null;
+  }
+
+  // GET /api/logging/status
+  app.get("/api/logging/status", (_req, res) => {
+    res.json({ paused: paused });
+  });
+
+  // POST /api/logging/pause
+  app.post("/api/logging/pause", async (_req, res) => {
+    const dir = activeSessionDir();
+    if (dir) await fs.promises.writeFile(path.join(dir, ".paused"), "").catch(() => {});
+    paused = true;
+    res.json({ paused: true });
+  });
+
+  // POST /api/logging/resume
+  app.post("/api/logging/resume", async (_req, res) => {
+    const dir = activeSessionDir();
+    if (dir) await fs.promises.rm(path.join(dir, ".paused"), { force: true }).catch(() => {});
+    paused = false;
+    res.json({ paused: false });
+  });
+
   // GET /api/sessions
   app.get("/api/sessions", (_req, res) => {
     try {
