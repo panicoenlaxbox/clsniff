@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import type { Entry, EntrySummary } from "../types";
 import { ChevronRight, Download, WrapText, Info } from "lucide-react";
 import HeadersSection from "./HeadersSection";
-import JsonBlock from "./JsonBlock";
+import BodyView from "./BodyView";
 import ClaudeView from "./ClaudeView";
 import CopyBtn from "./CopyBtn";
 import { isClaudeEntry } from "../lib/claude";
@@ -65,7 +65,7 @@ function BodySection({
           {body === null || body === undefined ? (
             <span className="font-mono text-gray-400 dark:text-gray-500 px-3 py-2 block">null</span>
           ) : (
-            <JsonBlock data={body} wordWrap={wordWrap} />
+            <BodyView data={body} wordWrap={wordWrap} />
           )}
         </div>
       )}

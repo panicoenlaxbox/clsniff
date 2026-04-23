@@ -1,4 +1,4 @@
-import JsonBlock from "./JsonBlock";
+import BodyView from "./BodyView";
 import { ChevronRight } from "lucide-react";
 
 interface Props {
@@ -28,7 +28,7 @@ export default function HeadersSection({ headers, wordWrap, open, onToggle }: Pr
 
       {open && (
         <div className="p-2">
-          <JsonBlock data={headers} wordWrap={wordWrap} />
+          <BodyView data={headers} wordWrap={wordWrap} />
         </div>
       )}
     </div>

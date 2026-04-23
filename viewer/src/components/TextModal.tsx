@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Highlight, themes } from "prism-react-renderer";
 import { WrapText, X } from "lucide-react";
 import CopyBtn from "./CopyBtn";
+import BodyView from "./BodyView";
+import { detectLanguage } from "../lib/detectLanguage";
 
 interface Props {
   title: string;
@@ -9,39 +10,14 @@ interface Props {
   onClose: () => void;
 }
 
-function detectLanguage(text: string): "json" | "markup" | "text" {
-  const trimmed = text.trim();
-  if (trimmed.startsWith("{") || trimmed.startsWith("[")) return "json";
-  if (trimmed.startsWith("<")) return "markup";
-  return "text";
-}
-
-function useIsDark() {
-  const [isDark, setIsDark] = useState(() =>
-    document.documentElement.classList.contains("dark")
-  );
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains("dark"));
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, []);
-  return isDark;
-}
-
 export default function TextModal({ title, content, onClose }: Props) {
   const [wrap, setWrap] = useState(true);
-  const isDark = useIsDark();
-  const lang = detectLanguage(content);
 
-  let displayContent = content;
+  const lang = detectLanguage(content);
+  let copyContent = content;
   if (lang === "json") {
     try {
-      displayContent = JSON.stringify(JSON.parse(content), null, 2);
+      copyContent = JSON.stringify(JSON.parse(content), null, 2);
     } catch {
       // keep as-is
     }
@@ -54,8 +30,6 @@ export default function TextModal({ title, content, onClose }: Props) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  const hlTheme = isDark ? themes.vsDark : themes.github;
 
   return (
     <div
@@ -78,7 +52,7 @@ export default function TextModal({ title, content, onClose }: Props) {
             >
               <WrapText size={16} />
             </button>
-            <CopyBtn text={displayContent} />
+            <CopyBtn text={copyContent} />
             <button
               onClick={onClose}
               className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700"
@@ -89,28 +63,12 @@ export default function TextModal({ title, content, onClose }: Props) {
         </div>
         {/* Content */}
         <div className="flex-1 overflow-auto p-4 font-mono">
-          {lang === "text" ? (
-            <pre className={`text-gray-800 dark:text-gray-200 ${wrap ? "whitespace-pre-wrap break-all" : "whitespace-pre"}`}>
-              {displayContent}
-            </pre>
-          ) : (
-            <Highlight theme={hlTheme} code={displayContent} language={lang}>
-              {({ className, style, tokens, getLineProps, getTokenProps }) => (
-                <pre
-                  className={`${className} ${wrap ? "whitespace-pre-wrap break-all" : "whitespace-pre"}`}
-                  style={style}
-                >
-                  {tokens.map((line, i) => (
-                    <div key={i} {...getLineProps({ line })}>
-                      {line.map((token, k) => (
-                        <span key={k} {...getTokenProps({ token })} />
-                      ))}
-                    </div>
-                  ))}
-                </pre>
-              )}
-            </Highlight>
-          )}
+          <BodyView
+            data={content}
+            wordWrap={wrap}
+            onKeyClick={null}
+            showCopyBtn={false}
+          />
         </div>
       </div>
     </div>
