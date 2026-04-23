@@ -21,9 +21,6 @@ export default function HeadersSection({ headers, wordWrap, open, onToggle }: Pr
       >
         <ChevronIcon open={open} />
         <span>Headers</span>
-        <span className="ml-1 text-gray-400 dark:text-gray-500 font-normal normal-case text-xs">
-          {Object.keys(headers).length}
-        </span>
       </button>
 
       {open && (

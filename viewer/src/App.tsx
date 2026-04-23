@@ -196,14 +196,16 @@ export default function App() {
           onSearch={handleSearch}
         />
         <div className="flex-1" />
-        <RecordingToggle paused={loggingPaused} onToggle={() => void handleToggleLogging()} />
-        <button
-          onClick={cycle}
-          title={themeTitle}
-          className="p-1 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700"
-        >
-          <ThemeIcon theme={theme} />
-        </button>
+        <div className="flex items-center gap-2">
+          <RecordingToggle paused={loggingPaused} onToggle={() => void handleToggleLogging()} />
+          <button
+            onClick={cycle}
+            title={themeTitle}
+            className="p-1 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700"
+          >
+            <ThemeIcon theme={theme} />
+          </button>
+        </div>
       </header>
 
       {/* Body */}

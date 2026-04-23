@@ -148,7 +148,7 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Tab bar */}
-      <div className="flex items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shrink-0 px-2 gap-1">
+      <div className="flex items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shrink-0 pl-2 pr-4">
         {tabs.map((t) => (
           <button
             key={t}
@@ -163,43 +163,44 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
           </button>
         ))}
         <div className="flex-1" />
-        {/* Download */}
-        <a
-          href={`/api/sessions/${encodeURIComponent(summary.sessionName)}/entries/${encodeURIComponent(summary.filename)}?download=true`}
-          download={summary.filename}
-          title="Download JSON file"
-          className={iconBtn(false)}
-        >
-          <Download size={16} />
-        </a>
-        {/* Word wrap toggle */}
-        {/* Word wrap toggle */}
-        <button
-          onClick={onToggleWrap}
-          disabled={tab === "claude"}
-          title={wordWrap ? "Disable word wrap" : "Enable word wrap"}
-          className={`${iconBtn(wordWrap)} disabled:opacity-30 disabled:cursor-default`}
-        >
-          <WrapText size={16} />
-        </button>
-        {/* Entry properties */}
-        <div className="relative" ref={propsRef}>
-          <button onClick={() => setPropsOpen((o) => !o)} title="Entry properties" className={iconBtn(propsOpen)}>
-            <Info size={16} />
+        <div className="flex items-center gap-2">
+          {/* Download */}
+          <a
+            href={`/api/sessions/${encodeURIComponent(summary.sessionName)}/entries/${encodeURIComponent(summary.filename)}?download=true`}
+            download={summary.filename}
+            title="Download JSON file"
+            className={iconBtn(false)}
+          >
+            <Download size={16} />
+          </a>
+          {/* Word wrap toggle */}
+          <button
+            onClick={onToggleWrap}
+            disabled={tab === "claude"}
+            title={wordWrap ? "Disable word wrap" : "Enable word wrap"}
+            className={`${iconBtn(wordWrap)} disabled:opacity-30 disabled:cursor-default`}
+          >
+            <WrapText size={16} />
           </button>
-          {propsOpen && (
-            <div className="absolute top-full right-0 mt-1 w-96 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20">
-              <div className="py-1.5">
-                <PropRow label="Timestamp" value={formatTimestamp(entry.timestamp)} />
-                <PropRow label="Duration" value={`${entry.duration_ms.toFixed(0)} ms`} />
-                <PropRow label="Session" value={summary.sessionName} />
-                <PropRow label="Method" value={entry.request.method} />
-                <PropRow label="URL" value={entry.request.url} />
-                <PropRow label="Status" value={statusText} />
-                <PropRow label="File" value={filePath} />
+          {/* Entry properties */}
+          <div className="relative" ref={propsRef}>
+            <button onClick={() => setPropsOpen((o) => !o)} title="Entry properties" className={iconBtn(propsOpen)}>
+              <Info size={16} />
+            </button>
+            {propsOpen && (
+              <div className="absolute top-full right-0 mt-1 w-96 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20">
+                <div className="py-1.5">
+                  <PropRow label="Timestamp" value={formatTimestamp(entry.timestamp)} />
+                  <PropRow label="Duration" value={`${entry.duration_ms.toFixed(0)} ms`} />
+                  <PropRow label="Session" value={summary.sessionName} />
+                  <PropRow label="Method" value={entry.request.method} />
+                  <PropRow label="URL" value={entry.request.url} />
+                  <PropRow label="Status" value={statusText} />
+                  <PropRow label="File" value={filePath} />
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
