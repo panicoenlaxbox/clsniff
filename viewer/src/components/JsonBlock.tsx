@@ -291,6 +291,7 @@ export default function JsonBlock({ data, wordWrap, onKeyClick, showCopyBtn = tr
           title={modal.title}
           content={modal.content}
           onClose={() => setModal(null)}
+          wordWrap={wordWrap}
         />
       )}
     </div>

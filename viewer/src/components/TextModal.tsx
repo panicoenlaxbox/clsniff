@@ -8,10 +8,11 @@ interface Props {
   title: string;
   content: string;
   onClose: () => void;
+  wordWrap?: boolean;
 }
 
-export default function TextModal({ title, content, onClose }: Props) {
-  const [wrap, setWrap] = useState(true);
+export default function TextModal({ title, content, onClose, wordWrap = false }: Props) {
+  const [wrap, setWrap] = useState(wordWrap);
 
   const lang = detectLanguage(content);
   let copyContent = content;
