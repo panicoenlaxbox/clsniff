@@ -77,6 +77,15 @@ export interface ReconstructedResponse {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function totalInputTokens(usage: Record<string, number> | undefined): number | undefined {
+  if (!usage) return undefined;
+  const direct = usage.input_tokens ?? 0;
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+  const cacheCreate = usage.cache_creation_input_tokens ?? 0;
+  const total = direct + cacheRead + cacheCreate;
+  return total > 0 ? total : (usage.input_tokens !== undefined ? 0 : undefined);
+}
+
 export function isClaudeEntry(entry: Entry): boolean {
   try {
     const pathname = new URL(entry.request.url).pathname;
@@ -117,7 +126,7 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
       content: (b.content as ClaudeContentBlock[]).filter(
         (block) => block.type !== "thinking" || !!(block as ClaudeThinkingBlock).thinking
       ),
-      inputTokens: usage?.input_tokens,
+      inputTokens: totalInputTokens(usage),
       outputTokens: usage?.output_tokens,
     };
   }
@@ -142,7 +151,7 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
         if (typeof msg.model === "string") model = msg.model;
         const usage = msg.usage as Record<string, number> | undefined;
         if (usage) {
-          inputTokens = usage.input_tokens;
+          inputTokens = totalInputTokens(usage);
         }
       }
     } else if (type === "content_block_start") {
