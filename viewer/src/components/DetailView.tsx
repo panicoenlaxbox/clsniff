@@ -91,8 +91,10 @@ function PropRow({ label, value }: { label: string; value: string }) {
 
 export default function DetailView({ entry, summary, wordWrap, onToggleWrap, outputDir }: Props) {
   const [tab, setTab] = useState<Tab>("request");
-  const [headersOpen, setHeadersOpen] = useState(true);
-  const [bodyOpen, setBodyOpen] = useState(true);
+  const [reqHeadersOpen, setReqHeadersOpen] = useState(true);
+  const [reqBodyOpen, setReqBodyOpen] = useState(true);
+  const [resHeadersOpen, setResHeadersOpen] = useState(true);
+  const [resBodyOpen, setResBodyOpen] = useState(true);
   const [propsOpen, setPropsOpen] = useState(false);
   const propsRef = useRef<HTMLDivElement>(null);
 
@@ -201,56 +203,49 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
         </div>
       </div>
 
-      {/* Content */}
-      {tab === "claude" ? (
-        <ClaudeView entry={entry} wordWrap={wordWrap} />
-      ) : (
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-white dark:bg-gray-900">
-          {tab === "request" ? (
-            <>
-              <div className="font-mono text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded px-3 py-2 break-all">
-                <span className="text-gray-800 dark:text-gray-100 mr-2">
-                  {entry.request.method}
-                </span>
-                {entry.request.url}
-              </div>
-              <HeadersSection
-                headers={entry.request.headers}
-                wordWrap={wordWrap}
-                open={headersOpen}
-                onToggle={() => setHeadersOpen((o) => !o)}
-              />
-              <BodySection
-                body={entry.request.body}
-                wordWrap={wordWrap}
-                open={bodyOpen}
-                onToggle={() => setBodyOpen((o) => !o)}
-              />
-            </>
-          ) : (
-            <>
-              <div className="font-mono text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded px-3 py-2">
-                <span className={`mr-2 ${statusColor(entry.response.status)}`}>
-                  {entry.response.status}
-                </span>
-                {entry.response.status_reason}
-              </div>
-              <HeadersSection
-                headers={entry.response.headers}
-                wordWrap={wordWrap}
-                open={headersOpen}
-                onToggle={() => setHeadersOpen((o) => !o)}
-              />
-              <BodySection
-                body={entry.response.body}
-                wordWrap={wordWrap}
-                open={bodyOpen}
-                onToggle={() => setBodyOpen((o) => !o)}
-              />
-            </>
-          )}
+      {/* Content — ClaudeView stays mounted to preserve expand/collapse state; hidden via CSS when inactive */}
+      {isClaudeEntry(entry) && (
+        <div className={tab === "claude" ? "flex-1 flex flex-col overflow-hidden" : "hidden"}>
+          <ClaudeView key={summary.filename} entry={entry} wordWrap={wordWrap} />
         </div>
       )}
+      {/* Each tab gets its own scroll container so scroll position is preserved independently */}
+      <div className={`flex-1 overflow-y-auto p-3 space-y-2 bg-white dark:bg-gray-900${tab !== "request" ? " hidden" : ""}`}>
+        <div className="font-mono text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded px-3 py-2 break-all">
+          <span className="text-gray-800 dark:text-gray-100 mr-2">{entry.request.method}</span>
+          {entry.request.url}
+        </div>
+        <HeadersSection
+          headers={entry.request.headers}
+          wordWrap={wordWrap}
+          open={reqHeadersOpen}
+          onToggle={() => setReqHeadersOpen((o) => !o)}
+        />
+        <BodySection
+          body={entry.request.body}
+          wordWrap={wordWrap}
+          open={reqBodyOpen}
+          onToggle={() => setReqBodyOpen((o) => !o)}
+        />
+      </div>
+      <div className={`flex-1 overflow-y-auto p-3 space-y-2 bg-white dark:bg-gray-900${tab !== "response" ? " hidden" : ""}`}>
+        <div className="font-mono text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded px-3 py-2">
+          <span className={`mr-2 ${statusColor(entry.response.status)}`}>{entry.response.status}</span>
+          {entry.response.status_reason}
+        </div>
+        <HeadersSection
+          headers={entry.response.headers}
+          wordWrap={wordWrap}
+          open={resHeadersOpen}
+          onToggle={() => setResHeadersOpen((o) => !o)}
+        />
+        <BodySection
+          body={entry.response.body}
+          wordWrap={wordWrap}
+          open={resBodyOpen}
+          onToggle={() => setResBodyOpen((o) => !o)}
+        />
+      </div>
     </div>
   );
 }
