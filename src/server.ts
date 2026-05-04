@@ -165,10 +165,11 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
       res.status(404).json({ error: "Session not found" });
       return;
     }
-    const search =
+    const searchStr =
       typeof req.query["search"] === "string"
-        ? req.query["search"].toLowerCase().trim()
+        ? req.query["search"].trim()
         : "";
+    const search = searchStr ? new RegExp(searchStr, "im") : null;
     try {
       const files = fs
         .readdirSync(sessionDir)
@@ -179,7 +180,7 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
         if (search) {
           // Full-content search: read the raw file and check before parsing
           const raw = fs.readFileSync(path.join(sessionDir, file), "utf-8");
-          if (!raw.toLowerCase().includes(search)) continue;
+          if (!search.test(raw)) continue;
           try {
             const parsed = JSON.parse(raw);
             summaries.push({
