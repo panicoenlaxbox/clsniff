@@ -5,9 +5,11 @@
       "type": "node",
       "request": "launch",
       "name": "Debug clsniff",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
-      "program": "${workspaceFolder}/src/cli.ts",
-      "args": ["--", "curl", "http://httpbin.org/get"],
+      "preLaunchTask": "tsc: build - tsconfig.json",
+      "program": "${workspaceFolder}/dist/cli.js",
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "args": ["--", "curl", "-H", "X-Custom-Header: hello world", "http://httpbin.org/get"],
       "skipFiles": ["<node_internals>/**", "${workspaceFolder}/node_modules/**"],
       "console": "integratedTerminal"
     }

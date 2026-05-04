@@ -74,6 +74,11 @@ program
   .passThroughOptions(true)
   .allowUnknownOption(false);
 
+// Wraps args containing spaces in double quotes so cmd.exe treats them as a single token.
+function quoteWindowsArg(arg: string): string {
+  return arg.includes(" ") ? `"${arg}"` : arg;
+}
+
 function installCert(cerPath: string): void {
   if (!fs.existsSync(cerPath)) {
     process.stderr.write(
@@ -211,7 +216,7 @@ async function main(): Promise<void> {
   log(`proxy listening on port ${proxyHandle.port}`);
   log(`session dir: ${sessionDir}`);
   log(`options: ${JSON.stringify(opts)}`);
-  log(`command: ${[command, ...commandArgs].join(" ")}`);
+
 
   // Start viewer alongside the proxy if requested
   let viewerHandle: Awaited<ReturnType<typeof startViewer>> | null = null;
@@ -249,10 +254,15 @@ async function main(): Promise<void> {
     // HTTP/2 proxy mode which conflicts with our HTTP/1.1-only MITM proxy.
   };
 
-  // On Windows, .cmd/.bat files (e.g. npm, npx) require shell:true to be found
+  // On Windows, .cmd/.bat files (e.g. npm, npx) require shell:true to be found.
+  // When shell:true, Node.js joins args with spaces without quoting, so args that
+  // contain spaces must be pre-quoted or cmd.exe will split them into extra tokens.
   const useShell = process.platform === "win32";
 
-  const child = spawn(command, commandArgs, {
+  const spawnArgs = useShell ? commandArgs.map(quoteWindowsArg) : commandArgs;
+  log(`command: ${command} ${JSON.stringify(spawnArgs)}`);
+
+  const child = spawn(command, spawnArgs, {
     stdio: "inherit",
     env: childEnv,
     shell: useShell,
