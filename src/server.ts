@@ -220,14 +220,7 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
       return;
     }
     try {
-      const raw = fs.readFileSync(filePath, "utf-8");
-      if (req.query["download"] === "true") {
-        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-        res.setHeader("Content-Type", "application/json");
-        res.send(raw);
-      } else {
-        res.json(JSON.parse(raw));
-      }
+      res.json(JSON.parse(fs.readFileSync(filePath, "utf-8")));
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

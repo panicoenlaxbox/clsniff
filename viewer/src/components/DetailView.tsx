@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { Entry, EntrySummary } from "../types";
-import { ChevronRight, Download, WrapText, Info } from "lucide-react";
+import { ChevronRight, WrapText, Info } from "lucide-react";
+import { VscVscode } from "react-icons/vsc";
 import HeadersSection from "./HeadersSection";
 import BodyView from "./BodyView";
 import ClaudeView from "./ClaudeView";
@@ -73,21 +74,15 @@ function BodySection({
   );
 }
 
-function PropRow({ label, value, href }: { label: string; value: string; href?: string }) {
+function PropRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start gap-2 px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 group">
       <span className="text-gray-400 dark:text-gray-500 uppercase tracking-wider shrink-0 w-20 pt-0.5">
         {label}
       </span>
-      {href ? (
-        <a href={href} className="text-blue-600 dark:text-blue-400 flex-1 break-all hover:underline">
-          {value}
-        </a>
-      ) : (
-        <span className="text-gray-700 dark:text-gray-200 flex-1 break-all">
-          {value}
-        </span>
-      )}
+      <span className="text-gray-700 dark:text-gray-200 flex-1 break-all">
+        {value}
+      </span>
       <div className="opacity-0 group-hover:opacity-100 shrink-0 -my-0.5">
         <CopyBtn text={value} />
       </div>
@@ -139,7 +134,6 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
   const filePath = outputDir
     ? [outputDir, summary.sessionName, summary.filename].join(sep)
     : summary.filename;
-  const vscodeHref = `vscode://file/${filePath.replace(/\\/g, "/")}`;
 
   const statusText = entry.response.status_reason
     ? `${entry.response.status} ${entry.response.status_reason}`
@@ -171,14 +165,13 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
         ))}
         <div className="flex-1" />
         <div className="flex items-center gap-2">
-          {/* Download */}
+          {/* Open in VS Code */}
           <a
-            href={`/api/sessions/${encodeURIComponent(summary.sessionName)}/entries/${encodeURIComponent(summary.filename)}?download=true`}
-            download={summary.filename}
-            title="Download JSON file"
+            href={`vscode://file/${filePath.replace(/\\/g, "/")}`}
+            title="Open in VS Code"
             className={iconBtn(false)}
           >
-            <Download size={16} />
+            <VscVscode size={16} />
           </a>
           {/* Word wrap toggle */}
           <button
@@ -202,7 +195,7 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
                   <PropRow label="Method" value={entry.request.method} />
                   <PropRow label="URL" value={entry.request.url} />
                   <PropRow label="Status" value={statusText} />
-                  <PropRow label="File" value={filePath} href={vscodeHref} />
+                  <PropRow label="File" value={filePath} />
                 </div>
               </div>
             )}
