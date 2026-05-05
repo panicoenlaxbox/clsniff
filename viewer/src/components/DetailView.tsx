@@ -176,9 +176,8 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
           {/* Word wrap toggle */}
           <button
             onClick={onToggleWrap}
-            disabled={tab === "claude"}
             title={wordWrap ? "Disable word wrap" : "Enable word wrap"}
-            className={`${iconBtn(wordWrap)} disabled:opacity-30 disabled:cursor-default`}
+            className={iconBtn(wordWrap)}
           >
             <WrapText size={16} />
           </button>
