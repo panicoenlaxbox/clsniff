@@ -138,6 +138,7 @@ export default function App() {
   // ── Select entry → load full data ───────────────────────────────────────────
   const handleSelect = useCallback(async (summary: EntrySummary) => {
     const key = `${summary.sessionName}-${summary.filename}`;
+    if (key === selectedKey) return;
     setSelectedKey(key);
     setSelectedSummary(summary);
     setEntry(null);
@@ -147,7 +148,7 @@ export default function App() {
     } catch {
       // ignore
     }
-  }, []);
+  }, [selectedKey]);
 
   // ── Resizable split pane ────────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement>(null);

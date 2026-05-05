@@ -73,15 +73,21 @@ function BodySection({
   );
 }
 
-function PropRow({ label, value }: { label: string; value: string }) {
+function PropRow({ label, value, href }: { label: string; value: string; href?: string }) {
   return (
     <div className="flex items-start gap-2 px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 group">
       <span className="text-gray-400 dark:text-gray-500 uppercase tracking-wider shrink-0 w-20 pt-0.5">
         {label}
       </span>
-      <span className="text-gray-700 dark:text-gray-200 flex-1 break-all">
-        {value}
-      </span>
+      {href ? (
+        <a href={href} className="text-blue-600 dark:text-blue-400 flex-1 break-all hover:underline">
+          {value}
+        </a>
+      ) : (
+        <span className="text-gray-700 dark:text-gray-200 flex-1 break-all">
+          {value}
+        </span>
+      )}
       <div className="opacity-0 group-hover:opacity-100 shrink-0 -my-0.5">
         <CopyBtn text={value} />
       </div>
@@ -133,6 +139,7 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
   const filePath = outputDir
     ? [outputDir, summary.sessionName, summary.filename].join(sep)
     : summary.filename;
+  const vscodeHref = `vscode://file/${filePath.replace(/\\/g, "/")}`;
 
   const statusText = entry.response.status_reason
     ? `${entry.response.status} ${entry.response.status_reason}`
@@ -195,7 +202,7 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
                   <PropRow label="Method" value={entry.request.method} />
                   <PropRow label="URL" value={entry.request.url} />
                   <PropRow label="Status" value={statusText} />
-                  <PropRow label="File" value={filePath} />
+                  <PropRow label="File" value={filePath} href={vscodeHref} />
                 </div>
               </div>
             )}
