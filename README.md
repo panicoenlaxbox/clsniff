@@ -207,6 +207,6 @@ npm run dev -- -- claude
 # Run with the viewer
 npm run dev -- --viewer -- claude
 
-# Standalone viewer (browse existing sessions)
-npm run dev -- --viewer
+# Standalone viewer with hot reload
+npm run dev:hot
 ```

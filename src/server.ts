@@ -104,7 +104,8 @@ function loadEntrySummary(
 }
 
 export async function startViewer(options: ViewerOptions): Promise<ViewerHandle> {
-  const port = await findFreePort();
+  const envPort = parseInt(process.env["CLSNIFF_SERVER_PORT"] ?? "", 10);
+  const port = envPort > 0 ? envPort : await findFreePort();
   const app = express();
 
   // Serve static viewer files

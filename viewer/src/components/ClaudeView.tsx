@@ -110,7 +110,7 @@ function ToolResultBlock({ block, wordWrap }: { block: ClaudeToolResultBlock; wo
                 return (
                   <pre
                     key={i}
-                    className="text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 rounded p-2 border border-gray-100 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap break-words"
+                    className={`text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 rounded p-2 border border-gray-100 dark:border-gray-700 overflow-x-auto ${wordWrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}
                   >
                     {it.text}
                   </pre>
@@ -148,7 +148,7 @@ function ContentBlocks({
                 </div>
               </div>
               <pre
-                className="text-gray-800 dark:text-gray-200 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words -mt-[30px]"
+                className={`text-gray-800 dark:text-gray-200 leading-relaxed overflow-x-auto -mt-[30px] ${wordWrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}
               >
                 {text}
               </pre>
@@ -319,7 +319,7 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
                   <CopyBtn text={systemText} className="m-1 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600" />
                 </div>
               </div>
-              <pre className="text-gray-600 dark:text-gray-300 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words -mt-[30px]">
+              <pre className={`text-gray-600 dark:text-gray-300 leading-relaxed overflow-x-auto -mt-[30px] ${wordWrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}>
                 {systemText}
               </pre>
             </div>
