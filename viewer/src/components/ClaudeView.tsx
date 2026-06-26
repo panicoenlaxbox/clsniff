@@ -333,9 +333,11 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
   const contextMessages = lastUserIdx > 0 ? messages.slice(0, lastUserIdx) : [];
   const lastUserMessage = lastUserIdx >= 0 ? messages[lastUserIdx] : null;
 
-  // System prompt text
+  // System prompt text — `system` may be a plain string or an array of blocks.
   const systemText = req.system
-    ? req.system.map((b) => b.text).join("\n\n")
+    ? typeof req.system === "string"
+      ? req.system
+      : req.system.map((b) => b.text).join("\n\n")
     : null;
 
   // Token info

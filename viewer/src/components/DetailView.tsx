@@ -5,6 +5,7 @@ import { VscVscode } from "react-icons/vsc";
 import HeadersSection from "./HeadersSection";
 import BodyView from "./BodyView";
 import ClaudeView from "./ClaudeView";
+import ErrorBoundary from "./ErrorBoundary";
 import CopyBtn from "./CopyBtn";
 import { isClaudeEntry } from "../lib/claude";
 
@@ -206,7 +207,9 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
       {/* Content — ClaudeView stays mounted to preserve expand/collapse state; hidden via CSS when inactive */}
       {isClaudeEntry(entry) && (
         <div className={tab === "claude" ? "flex-1 flex flex-col overflow-hidden" : "hidden"}>
-          <ClaudeView key={summary.filename} entry={entry} wordWrap={wordWrap} />
+          <ErrorBoundary resetKey={summary.filename}>
+            <ClaudeView key={summary.filename} entry={entry} wordWrap={wordWrap} />
+          </ErrorBoundary>
         </div>
       )}
       {/* Each tab gets its own scroll container so scroll position is preserved independently */}

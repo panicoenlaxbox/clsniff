@@ -61,7 +61,8 @@ export interface ClaudeSystemBlock {
 
 export interface ClaudeRequestBody {
   model: string;
-  system?: ClaudeSystemBlock[];
+  // The API accepts `system` as either a plain string or an array of text blocks.
+  system?: string | ClaudeSystemBlock[];
   messages: ClaudeMessage[];
   tools?: { name: string; description: string; input_schema: unknown }[];
   max_tokens: number;
