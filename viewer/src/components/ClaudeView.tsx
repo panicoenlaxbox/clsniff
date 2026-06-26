@@ -330,8 +330,12 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
     }
   }
 
+  // Context = everything before the last user message (collapsed).
   const contextMessages = lastUserIdx > 0 ? messages.slice(0, lastUserIdx) : [];
-  const lastUserMessage = lastUserIdx >= 0 ? messages[lastUserIdx] : null;
+  // Main = the last user message plus anything after it (e.g. an assistant
+  // prefill). If there is no user message at all, show every message rather
+  // than silently dropping them.
+  const mainMessages = lastUserIdx >= 0 ? messages.slice(lastUserIdx) : messages;
 
   // System prompt text — `system` may be a plain string or an array of blocks.
   const systemText = req.system
@@ -394,10 +398,10 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
           </CollapsibleSection>
         )}
 
-        {/* Last user message */}
-        {lastUserMessage && (
-          <MessageBubble msg={lastUserMessage} wordWrap={wordWrap} />
-        )}
+        {/* Last user message (and any trailing prefill) */}
+        {mainMessages.map((msg, i) => (
+          <MessageBubble key={i} msg={msg} wordWrap={wordWrap} />
+        ))}
 
         {/* Assistant response */}
         {response && response.content.length > 0 && (
