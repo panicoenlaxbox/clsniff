@@ -135,7 +135,7 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
       model: typeof b.model === "string" ? b.model : undefined,
       stopReason: typeof b.stop_reason === "string" ? b.stop_reason : undefined,
       content: (b.content as ClaudeContentBlock[]).filter(
-        (block) => block.type !== "thinking" || !!(block as ClaudeThinkingBlock).thinking
+        (block) => block.type !== "thinking"
       ),
       inputTokens: totalInputTokens(usage),
       outputTokens: usage?.output_tokens,
@@ -171,8 +171,6 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
       const cbType = cb.type as string;
       if (cbType === "text") {
         blocks[index] = { type: "text", text: "" };
-      } else if (cbType === "thinking") {
-        blocks[index] = { type: "thinking", thinking: "", signature: "" };
       } else if (cbType === "tool_use") {
         blocks[index] = {
           type: "tool_use",
@@ -194,7 +192,7 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
       } else if (deltaType === "input_json_delta" && block.type === "tool_use") {
         jsonBuffers[index] = (jsonBuffers[index] ?? "") + ((delta.partial_json as string) ?? "");
       }
-      // signature_delta and thinking_delta: skip (thinking is redacted)
+      // thinking_delta and signature_delta: ignored — thinking is never shown
     } else if (type === "content_block_stop") {
       const index = d.index as number;
       const block = blocks[index];
@@ -213,10 +211,7 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
     }
   }
 
-  // Filter out redacted thinking blocks (empty thinking)
-  const content = Object.values(blocks).filter(
-    (b) => b.type !== "thinking" || !!(b as ClaudeThinkingBlock).thinking
-  );
+  const content = Object.values(blocks);
 
   return { model, stopReason, content, inputTokens, outputTokens };
 }

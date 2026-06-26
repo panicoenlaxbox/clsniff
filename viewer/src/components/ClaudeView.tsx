@@ -190,7 +190,7 @@ function renderBlock(
   if (block.type === "tool_result") {
     return <ToolResultBlock key={i} block={block as ClaudeToolResultBlock} wordWrap={wordWrap} />;
   }
-  // thinking: skip (redacted)
+  // thinking blocks are filtered out during reconstruction and never reach here
   return null;
 }
 
