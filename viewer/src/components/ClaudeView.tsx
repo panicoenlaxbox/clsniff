@@ -96,7 +96,9 @@ function ToolResultBlock({ block, wordWrap }: { block: ClaudeToolResultBlock; wo
         <span className="text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider">
           Tool result
         </span>
-        <span className="text-gray-400 dark:text-gray-500 text-xs ml-1 font-mono">{block.tool_use_id.slice(-8)}</span>
+        {block.tool_use_id && (
+          <span className="text-gray-400 dark:text-gray-500 text-xs ml-1 font-mono">{block.tool_use_id.slice(-8)}</span>
+        )}
       </button>
       {open && (
         <div className="px-3 pb-3 space-y-1">
@@ -209,7 +211,7 @@ function ContentBlocks({
     <div className="space-y-1">
       {rendered.map((el, i) => (
         <div
-          key={i}
+          key={el.key ?? i}
           className={i > 0 ? "pt-3 mt-3 border-t border-gray-300 dark:border-gray-600" : ""}
         >
           {el}

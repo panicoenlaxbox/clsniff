@@ -33,7 +33,8 @@ export interface ClaudeToolUseBlock {
 export interface ClaudeToolResultBlock {
   type: "tool_result";
   tool_use_id: string;
-  content: unknown[];
+  // The API allows `content` to be a plain string or an array of blocks.
+  content: string | unknown[];
 }
 
 export type ClaudeContentBlock =
@@ -119,7 +120,7 @@ export function getMessageContent(msg: ClaudeMessage): ClaudeContentBlock[] {
   if (typeof msg.content === "string") {
     return [{ type: "text", text: msg.content }];
   }
-  return msg.content;
+  return msg.content ?? [];
 }
 
 // ── SSE response reconstruction ───────────────────────────────────────────────
@@ -212,7 +213,11 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
     }
   }
 
-  const content = Object.values(blocks);
+  // Emit blocks in content-index order rather than relying on insertion order.
+  const content = Object.keys(blocks)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((i) => blocks[i]);
 
   return { model, stopReason, content, inputTokens, outputTokens };
 }
