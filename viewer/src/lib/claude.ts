@@ -13,6 +13,16 @@ export interface ClaudeThinkingBlock {
   signature: string;
 }
 
+export interface ClaudeImageBlock {
+  type: "image";
+  source: {
+    type: "base64" | "url";
+    media_type?: string;
+    data?: string;
+    url?: string;
+  };
+}
+
 export interface ClaudeToolUseBlock {
   type: "tool_use";
   id: string;
@@ -29,6 +39,7 @@ export interface ClaudeToolResultBlock {
 export type ClaudeContentBlock =
   | ClaudeTextBlock
   | ClaudeThinkingBlock
+  | ClaudeImageBlock
   | ClaudeToolUseBlock
   | ClaudeToolResultBlock;
 

@@ -7,6 +7,7 @@ import {
   getMessageContent,
   type ClaudeMessage,
   type ClaudeContentBlock,
+  type ClaudeImageBlock,
   type ClaudeToolUseBlock,
   type ClaudeToolResultBlock,
   type ReconstructedResponse,
@@ -125,7 +126,73 @@ function ToolResultBlock({ block, wordWrap }: { block: ClaudeToolResultBlock; wo
   );
 }
 
+// ── Image block ───────────────────────────────────────────────────────────────
+
+function ImageBlock({ block }: { block: ClaudeImageBlock }) {
+  const src = block.source;
+  let url: string | null = null;
+  if (src.type === "base64" && src.data) {
+    url = `data:${src.media_type ?? "image/png"};base64,${src.data}`;
+  } else if (src.type === "url" && src.url) {
+    url = src.url;
+  }
+
+  if (!url) {
+    return (
+      <div className="text-gray-400 dark:text-gray-500 font-mono text-xs border border-gray-200 dark:border-gray-700 rounded px-3 py-2">
+        [image: unsupported source]
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded bg-gray-50/60 dark:bg-gray-800/40 p-2 inline-block max-w-full">
+      <img
+        src={url}
+        alt="message image"
+        className="max-w-full max-h-[480px] rounded object-contain"
+      />
+    </div>
+  );
+}
+
 // ── Content block renderer ────────────────────────────────────────────────────
+
+function renderBlock(
+  block: ClaudeContentBlock,
+  i: number,
+  wordWrap: boolean,
+): React.ReactElement | null {
+  if (block.type === "text") {
+    const text = block.text;
+    if (!text) return null;
+    return (
+      <div key={i} className="relative group">
+        <div className="sticky top-0 flex justify-end pointer-events-none">
+          <div className="pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
+            <CopyBtn text={text} className="m-1 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600" />
+          </div>
+        </div>
+        <pre
+          className={`text-gray-800 dark:text-gray-200 leading-relaxed overflow-x-auto -mt-[30px] ${wordWrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}
+        >
+          {text}
+        </pre>
+      </div>
+    );
+  }
+  if (block.type === "image") {
+    return <ImageBlock key={i} block={block as ClaudeImageBlock} />;
+  }
+  if (block.type === "tool_use") {
+    return <ToolUseBlock key={i} block={block as ClaudeToolUseBlock} wordWrap={wordWrap} />;
+  }
+  if (block.type === "tool_result") {
+    return <ToolResultBlock key={i} block={block as ClaudeToolResultBlock} wordWrap={wordWrap} />;
+  }
+  // thinking: skip (redacted)
+  return null;
+}
 
 function ContentBlocks({
   blocks,
@@ -134,36 +201,20 @@ function ContentBlocks({
   blocks: ClaudeContentBlock[];
   wordWrap: boolean;
 }) {
+  const rendered = blocks
+    .map((block, i) => renderBlock(block, i, wordWrap))
+    .filter((el): el is React.ReactElement => el !== null);
+
   return (
     <div className="space-y-1">
-      {blocks.map((block, i) => {
-        if (block.type === "text") {
-          const text = block.text;
-          if (!text) return null;
-          return (
-            <div key={i} className="relative group">
-              <div className="sticky top-0 flex justify-end pointer-events-none">
-                <div className="pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                  <CopyBtn text={text} className="m-1 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600" />
-                </div>
-              </div>
-              <pre
-                className={`text-gray-800 dark:text-gray-200 leading-relaxed overflow-x-auto -mt-[30px] ${wordWrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}
-              >
-                {text}
-              </pre>
-            </div>
-          );
-        }
-        if (block.type === "tool_use") {
-          return <ToolUseBlock key={i} block={block as ClaudeToolUseBlock} wordWrap={wordWrap} />;
-        }
-        if (block.type === "tool_result") {
-          return <ToolResultBlock key={i} block={block as ClaudeToolResultBlock} wordWrap={wordWrap} />;
-        }
-        // thinking: skip (redacted)
-        return null;
-      })}
+      {rendered.map((el, i) => (
+        <div
+          key={i}
+          className={i > 0 ? "pt-3 mt-3 border-t border-gray-300 dark:border-gray-600" : ""}
+        >
+          {el}
+        </div>
+      ))}
     </div>
   );
 }
