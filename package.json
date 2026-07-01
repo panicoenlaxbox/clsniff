@@ -1,6 +1,6 @@
 {
   "name": "clsniff",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Zero-configuration HTTP/HTTPS traffic sniffer for command-line tools like claude",
   "bin": {
     "clsniff": "./dist/cli.js"
@@ -15,7 +15,7 @@
     "build": "npm run build:viewer && tsc",
     "build:viewer": "cd viewer && npm install && npm run build",
     "dev": "tsx src/cli.ts",
-    "dev:hot": "concurrently -n api,vite -c blue,green \"cross-env CLSNIFF_SERVER_PORT=3747 tsx src/cli.ts --viewer --no-open\" \"cd viewer && npm run dev -- --open\"",
+    "dev:hot": "node scripts/dev-hot.mjs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

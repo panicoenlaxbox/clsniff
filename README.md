@@ -201,12 +201,12 @@ git clone https://github.com/panicoenlaxbox/clsniff.git
 cd clsniff
 npm install
 
-# Run against a real command
-npm run dev -- -- claude
-
-# Run with the viewer
-npm run dev -- --viewer -- claude
-
-# Standalone viewer with hot reload
+# Work on the viewer with hot reload (browse captured sessions)
 npm run dev:hot
+
+# Same, but also run a command through the proxy to capture fresh traffic
+npm run dev:hot -- claude
 ```
+
+Both use Vite's hot module reload, so edits under `viewer/src` show up instantly.
+To exercise the CLI without the viewer, run `npm run dev -- -- <command>`.

@@ -47,7 +47,9 @@ export type ClaudeContentBlock =
 // ── Message ───────────────────────────────────────────────────────────────────
 
 export interface ClaudeMessage {
-  role: "user" | "assistant";
+  // The API only documents "user" and "assistant", but real payloads
+  // occasionally carry other roles (e.g. "system") inside the messages array.
+  role: "user" | "assistant" | (string & {});
   content: string | ClaudeContentBlock[];
 }
 
@@ -68,6 +70,7 @@ export interface ClaudeRequestBody {
   tools?: { name: string; description: string; input_schema: unknown }[];
   max_tokens: number;
   thinking?: { type: string };
+  output_config?: { effort?: string };
   stream?: boolean;
 }
 

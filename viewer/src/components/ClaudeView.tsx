@@ -14,6 +14,7 @@ import {
 } from "../lib/claude";
 import JsonBlock from "./JsonBlock";
 import CopyBtn from "./CopyBtn";
+import ToolsModal from "./ToolsModal";
 
 interface Props {
   entry: Entry;
@@ -41,10 +42,10 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded">
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-1.5 px-3 py-2 font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-t"
+        className="w-full flex items-center gap-1.5 px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-t-lg"
       >
         <Chevron open={open} />
         <span>{title}</span>
@@ -52,7 +53,7 @@ function CollapsibleSection({
           <span className="ml-1 font-normal normal-case text-gray-400 dark:text-gray-500 text-xs">{badge}</span>
         )}
       </button>
-      {open && <div className="p-3">{children}</div>}
+      {open && <div className="px-4 pb-3">{children}</div>}
     </div>
   );
 }
@@ -221,9 +222,25 @@ function ContentBlocks({
   );
 }
 
+// ── Section divider ───────────────────────────────────────────────────────────
+
+function SectionDivider() {
+  return (
+    <div className="pt-1" aria-hidden>
+      <div className="h-px bg-gray-200 dark:bg-gray-700" />
+    </div>
+  );
+}
+
 // ── Message bubble ────────────────────────────────────────────────────────────
 
-const roleStyles = {
+interface RoleStyle {
+  bg: string;
+  label: string;
+  labelColor: string;
+}
+
+const roleStyles: Record<string, RoleStyle> = {
   user: {
     bg: "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800",
     label: "USER",
@@ -234,7 +251,24 @@ const roleStyles = {
     label: "ASSISTANT",
     labelColor: "text-emerald-700 dark:text-emerald-400",
   },
-} as const;
+  system: {
+    bg: "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800",
+    label: "SYSTEM",
+    labelColor: "text-amber-700 dark:text-amber-400",
+  },
+};
+
+// Fallback for any role not in `roleStyles` (defensive: avoids crashing on
+// unexpected roles present in real-world payloads).
+function styleForRole(role: string): RoleStyle {
+  return (
+    roleStyles[role] ?? {
+      bg: "bg-gray-50 dark:bg-gray-800/40 border-gray-200 dark:border-gray-700",
+      label: role ? role.toUpperCase() : "UNKNOWN",
+      labelColor: "text-gray-600 dark:text-gray-400",
+    }
+  );
+}
 
 function MessageBubble({
   msg,
@@ -246,7 +280,7 @@ function MessageBubble({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const style = roleStyles[msg.role];
+  const style = styleForRole(msg.role);
   const blocks = getMessageContent(msg);
   return (
     <div className={`rounded-lg border ${style.bg}`}>
@@ -309,6 +343,7 @@ function ResponseBubble({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ClaudeView({ entry, wordWrap }: Props) {
+  const [toolsOpen, setToolsOpen] = useState(false);
   const req = parseClaudeRequest(entry.request.body);
   const response = reconstructResponse(entry.response.body);
 
@@ -339,12 +374,14 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
   // than silently dropping them.
   const mainMessages = lastUserIdx >= 0 ? messages.slice(lastUserIdx) : messages;
 
-  // System prompt text — `system` may be a plain string or an array of blocks.
-  const systemText = req.system
+  // System prompt — `system` may be a plain string or an array of blocks.
+  // Normalize to content blocks so it renders with the same per-block dividers
+  // and copy buttons as the rest of the messages.
+  const systemBlocks: ClaudeContentBlock[] = req.system
     ? typeof req.system === "string"
-      ? req.system
-      : req.system.map((b) => b.text).join("\n\n")
-    : null;
+      ? [{ type: "text", text: req.system }]
+      : req.system.map((b) => ({ type: "text", text: b.text }))
+    : [];
 
   // Token info
   const inputTokens = response?.inputTokens;
@@ -365,23 +402,38 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
             out: <span className="text-gray-600 dark:text-gray-300">{outputTokens.toLocaleString()}</span>
           </span>
         )}
+        {req.max_tokens !== undefined && (
+          <span className="text-gray-400 dark:text-gray-500">
+            max: <span className="text-gray-600 dark:text-gray-300">{req.max_tokens.toLocaleString()}</span>
+          </span>
+        )}
+        {req.thinking?.type && (
+          <span className="text-gray-400 dark:text-gray-500">
+            thinking: <span className="text-gray-600 dark:text-gray-300">{req.thinking.type}</span>
+          </span>
+        )}
+        {req.output_config?.effort && (
+          <span className="text-gray-400 dark:text-gray-500">
+            effort: <span className="text-gray-600 dark:text-gray-300">{req.output_config.effort}</span>
+          </span>
+        )}
+        {req.tools && req.tools.length > 0 && (
+          <button
+            onClick={() => setToolsOpen(true)}
+            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer transition-colors underline decoration-dotted underline-offset-2"
+            title="Inspect tool definitions"
+          >
+            tools: <span className="text-gray-600 dark:text-gray-300">{req.tools.length}</span>
+          </button>
+        )}
       </div>
 
       {/* Scrollable conversation area */}
       <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2">
         {/* System prompt */}
-        {systemText && (
+        {systemBlocks.length > 0 && (
           <CollapsibleSection title="System" defaultOpen={false}>
-            <div className="relative group">
-              <div className="sticky top-0 flex justify-end pointer-events-none">
-                <div className="pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                  <CopyBtn text={systemText} className="m-1 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600" />
-                </div>
-              </div>
-              <pre className={`text-gray-600 dark:text-gray-300 leading-relaxed overflow-x-auto -mt-[30px] ${wordWrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}>
-                {systemText}
-              </pre>
-            </div>
+            <ContentBlocks blocks={systemBlocks} wordWrap={wordWrap} />
           </CollapsibleSection>
         )}
 
@@ -407,7 +459,11 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
 
         {/* Assistant response */}
         {response && response.content.length > 0 && (
-          <ResponseBubble response={response} wordWrap={wordWrap} />
+          <>
+            {/* Response boundary */}
+            <SectionDivider />
+            <ResponseBubble response={response} wordWrap={wordWrap} />
+          </>
         )}
 
         {!response && (
@@ -416,6 +472,10 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
           </div>
         )}
       </div>
+
+      {toolsOpen && req.tools && (
+        <ToolsModal tools={req.tools} onClose={() => setToolsOpen(false)} wordWrap={wordWrap} />
+      )}
     </div>
   );
 }
