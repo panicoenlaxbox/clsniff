@@ -17,6 +17,20 @@ export interface EntrySummary {
   sessionName: string;
 }
 
+/** One occurrence within a file: the raw-JSON line it falls on, split for highlighting. */
+export interface MatchHunk {
+  before: string;
+  match: string;
+  after: string;
+  /** 1-based line/column of the match in the raw file (for editor deep-links). */
+  line: number;
+  column: number;
+}
+
+export interface MatchEntry extends EntrySummary {
+  hunks: MatchHunk[];
+}
+
 export interface Entry {
   id: number;
   timestamp: string;

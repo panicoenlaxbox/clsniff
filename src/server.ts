@@ -58,6 +58,55 @@ interface EntrySummary {
   filename: string;
 }
 
+/** One occurrence: the physical raw-JSON line it falls on, split for highlighting. */
+interface MatchHunk {
+  before: string;
+  match: string;
+  after: string;
+  /** 1-based line/column of the match in the raw file (for editor deep-links). */
+  line: number;
+  column: number;
+}
+
+interface MatchEntry extends EntrySummary {
+  hunks: MatchHunk[];
+}
+
+/**
+ * Find every occurrence of `regex` in `raw` and return, per match, the physical
+ * line of the file it falls on, split into { before, match, after }. The line is
+ * returned verbatim (no clipping/unescaping) so it mirrors what the raw detail
+ * view shows; word-wrap on the client keeps long lines readable.
+ */
+function extractHunks(raw: string, regex: RegExp): MatchHunk[] {
+  const hunks: MatchHunk[] = [];
+  regex.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  // Track the 1-based line number incrementally: matches arrive in ascending
+  // order, so we only ever scan each character once across the whole loop.
+  let line = 1;
+  let scanned = 0;
+  while ((m = regex.exec(raw)) !== null) {
+    const start = m.index;
+    const end = start + m[0].length;
+    for (let k = scanned; k < start; k++) if (raw.charCodeAt(k) === 10) line++;
+    scanned = start;
+    const lineStart = raw.lastIndexOf("\n", start - 1) + 1;
+    let lineEnd = raw.indexOf("\n", end);
+    if (lineEnd === -1) lineEnd = raw.length;
+    hunks.push({
+      before: raw.slice(lineStart, start),
+      match: m[0],
+      after: raw.slice(end, lineEnd),
+      line,
+      column: start - lineStart + 1,
+    });
+    // Guard against zero-length matches (e.g. patterns that can match empty).
+    if (m[0].length === 0) regex.lastIndex++;
+  }
+  return hunks;
+}
+
 function listSessions(outputDir: string): SessionInfo[] {
   if (!fs.existsSync(outputDir)) return [];
   const entries = fs.readdirSync(outputDir, { withFileTypes: true });
@@ -201,6 +250,66 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
         }
       }
       res.json({ entries: summaries });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // GET /api/sessions/:name/matches?search=term
+  // Returns, per matching file, its summary plus one "hunk" per occurrence:
+  // the physical line of the raw .json where the match falls, split into
+  // { before, match, after } so the client can highlight without re-running
+  // the regex. Operates on the raw file, so every server-side match is shown.
+  app.get("/api/sessions/:name/matches", (req, res) => {
+    const sessionDir = path.join(options.outputDir, req.params.name);
+    if (!fs.existsSync(sessionDir)) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+    const searchStr =
+      typeof req.query["search"] === "string" ? req.query["search"].trim() : "";
+    if (!searchStr) {
+      res.json({ entries: [] });
+      return;
+    }
+    let regex: RegExp;
+    try {
+      regex = new RegExp(searchStr, "gim");
+    } catch {
+      res.status(400).json({ error: "Invalid search pattern" });
+      return;
+    }
+    try {
+      const files = fs
+        .readdirSync(sessionDir)
+        .filter((f) => f.endsWith(".json"))
+        .sort();
+      const entries: MatchEntry[] = [];
+      for (const file of files) {
+        const raw = fs.readFileSync(path.join(sessionDir, file), "utf-8");
+        const hunks = extractHunks(raw, regex);
+        if (hunks.length === 0) continue;
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          continue; // skip malformed
+        }
+        const request = parsed["request"] as Record<string, unknown> | undefined;
+        const response = parsed["response"] as Record<string, unknown> | undefined;
+        entries.push({
+          id: parsed["id"] as number,
+          timestamp: parsed["timestamp"] as string,
+          duration_ms: parsed["duration_ms"] as number,
+          method: (request?.["method"] as string) ?? "",
+          url: (request?.["url"] as string) ?? "",
+          status: (response?.["status"] as number) ?? 0,
+          status_reason: (response?.["status_reason"] as string) ?? null,
+          filename: file,
+          hunks,
+        });
+      }
+      res.json({ entries });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { Entry } from "../types";
 import { ChevronRight } from "lucide-react";
 import {
@@ -16,9 +16,41 @@ import JsonBlock from "./JsonBlock";
 import CopyBtn from "./CopyBtn";
 import ToolsModal from "./ToolsModal";
 
+export type ExpandMode = "default" | "open" | "closed";
+
 interface Props {
   entry: Entry;
   wordWrap: boolean;
+  /** Broadcast expand/collapse-all state; `signal` bumps on each toolbar click. */
+  expandMode?: ExpandMode;
+  expandSignal?: number;
+}
+
+// Lets the "expand/collapse all" toolbar reach every collapsible panel without
+// removing each panel's own independent toggling.
+const ExpandContext = createContext<{ mode: ExpandMode; signal: number }>({
+  mode: "default",
+  signal: 0,
+});
+
+// Collapsible state that initializes from the current broadcast mode and
+// re-applies whenever the toolbar bumps `signal`, while staying independently
+// toggleable in between.
+function useCollapsible(defaultOpen: boolean) {
+  const { mode, signal } = useContext(ExpandContext);
+  const resolve = () => (mode === "open" ? true : mode === "closed" ? false : defaultOpen);
+  const [open, setOpen] = useState(resolve);
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    setOpen(resolve());
+    // Only react to explicit toolbar clicks (signal), not to unrelated re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signal]);
+  return [open, setOpen] as const;
 }
 
 // ── Chevron icon ──────────────────────────────────────────────────────────────
@@ -40,7 +72,7 @@ function CollapsibleSection({
   children: React.ReactNode;
   badge?: string;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useCollapsible(defaultOpen);
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
       <button
@@ -61,7 +93,7 @@ function CollapsibleSection({
 // ── Tool use block ────────────────────────────────────────────────────────────
 
 function ToolUseBlock({ block, wordWrap }: { block: ClaudeToolUseBlock; wordWrap: boolean }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useCollapsible(false);
   return (
     <div className="border border-purple-200 dark:border-purple-800 rounded bg-purple-50/60 dark:bg-purple-950/40 mt-2">
       <button
@@ -85,7 +117,7 @@ function ToolUseBlock({ block, wordWrap }: { block: ClaudeToolUseBlock; wordWrap
 // ── Tool result block ─────────────────────────────────────────────────────────
 
 function ToolResultBlock({ block, wordWrap }: { block: ClaudeToolResultBlock; wordWrap: boolean }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useCollapsible(false);
   const contentItems = Array.isArray(block.content) ? block.content : null;
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded bg-gray-50/80 dark:bg-gray-800/60 mt-2">
@@ -279,7 +311,7 @@ function MessageBubble({
   wordWrap: boolean;
   defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useCollapsible(defaultOpen);
   const style = styleForRole(msg.role);
   const blocks = getMessageContent(msg);
   return (
@@ -313,7 +345,7 @@ function ResponseBubble({
   wordWrap: boolean;
   defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useCollapsible(defaultOpen);
   const style = roleStyles.assistant;
   return (
     <div className={`rounded-lg border ${style.bg}`}>
@@ -342,7 +374,12 @@ function ResponseBubble({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ClaudeView({ entry, wordWrap }: Props) {
+export default function ClaudeView({
+  entry,
+  wordWrap,
+  expandMode = "default",
+  expandSignal = 0,
+}: Props) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const req = parseClaudeRequest(entry.request.body);
   const response = reconstructResponse(entry.response.body);
@@ -388,6 +425,7 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
   const outputTokens = response?.outputTokens;
 
   return (
+    <ExpandContext.Provider value={{ mode: expandMode, signal: expandSignal }}>
     <div className="flex flex-col h-full overflow-hidden">
       {/* Metadata bar */}
       <div className="font-mono text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded px-3 py-2 mx-3 mt-3 mb-2 shrink-0 flex items-center gap-3 flex-wrap">
@@ -477,5 +515,6 @@ export default function ClaudeView({ entry, wordWrap }: Props) {
         <ToolsModal tools={req.tools} onClose={() => setToolsOpen(false)} wordWrap={wordWrap} />
       )}
     </div>
+    </ExpandContext.Provider>
   );
 }

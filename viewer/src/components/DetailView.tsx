@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import type { Entry, EntrySummary } from "../types";
-import { ChevronRight, WrapText, Info } from "lucide-react";
+import { ChevronRight, WrapText, Info, ChevronsUpDown, ChevronsDownUp, RotateCcw } from "lucide-react";
 import { VscVscode } from "react-icons/vsc";
 import HeadersSection from "./HeadersSection";
 import BodyView from "./BodyView";
 import ClaudeView from "./ClaudeView";
+import type { ExpandMode } from "./ClaudeView";
 import ErrorBoundary from "./ErrorBoundary";
 import CopyBtn from "./CopyBtn";
 import { isClaudeEntry } from "../lib/claude";
@@ -99,6 +100,9 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
   const [resBodyOpen, setResBodyOpen] = useState(true);
   const [propsOpen, setPropsOpen] = useState(false);
   const propsRef = useRef<HTMLDivElement>(null);
+  // Expand/collapse-all mode, remembered per entry; `signal` bumps on each click.
+  const [expandModes, setExpandModes] = useState<Record<string, ExpandMode>>({});
+  const [expandSignal, setExpandSignal] = useState(0);
 
   useEffect(() => {
     if (!propsOpen) return;
@@ -147,6 +151,12 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
         : "text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700"
     }`;
 
+  const expandMode = expandModes[summary.filename] ?? "default";
+  const setExpand = (mode: ExpandMode) => {
+    setExpandModes((m) => ({ ...m, [summary.filename]: mode }));
+    setExpandSignal((s) => s + 1);
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Tab bar */}
@@ -166,6 +176,20 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
         ))}
         <div className="flex-1" />
         <div className="flex items-center gap-2">
+          {/* Expand / collapse / reset all (Claude tab only) */}
+          {isClaudeEntry(entry) && tab === "claude" && (
+            <div className="flex items-center gap-1 pr-2 mr-1 border-r border-gray-200 dark:border-gray-700">
+              <button onClick={() => setExpand("open")} title="Expand all" className={iconBtn(expandMode === "open")}>
+                <ChevronsUpDown size={16} />
+              </button>
+              <button onClick={() => setExpand("closed")} title="Collapse all" className={iconBtn(expandMode === "closed")}>
+                <ChevronsDownUp size={16} />
+              </button>
+              <button onClick={() => setExpand("default")} title="Reset to default" className={iconBtn(false)}>
+                <RotateCcw size={15} />
+              </button>
+            </div>
+          )}
           {/* Open in VS Code */}
           <a
             href={`vscode://file/${filePath.replace(/\\/g, "/")}`}
@@ -208,7 +232,13 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
       {isClaudeEntry(entry) && (
         <div className={tab === "claude" ? "flex-1 flex flex-col overflow-hidden" : "hidden"}>
           <ErrorBoundary resetKey={summary.filename}>
-            <ClaudeView key={summary.filename} entry={entry} wordWrap={wordWrap} />
+            <ClaudeView
+              key={summary.filename}
+              entry={entry}
+              wordWrap={wordWrap}
+              expandMode={expandMode}
+              expandSignal={expandSignal}
+            />
           </ErrorBoundary>
         </div>
       )}

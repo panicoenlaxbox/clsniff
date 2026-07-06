@@ -4,6 +4,7 @@ import { fetchEntry, fetchEntries, fetchSessions, fetchLoggingStatus, setLogging
 import { Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import SessionSelector from "./components/SessionSelector";
 import SearchBar from "./components/SearchBar";
+import SearchResultsModal from "./components/SearchResultsModal";
 import EntryTable from "./components/EntryTable";
 import DetailView from "./components/DetailView";
 import RecordingToggle from "./components/RecordingToggle";
@@ -35,6 +36,7 @@ export default function App() {
   const [outputDir, setOutputDir] = useState("");
   const [loggingPaused, setLoggingPausedState] = useState(false);
   const [connected, setConnected] = useState(true);
+  const [resultsOpen, setResultsOpen] = useState(false);
   const resizing = useRef(false);
 
   // ── Load sessions ───────────────────────────────────────────────────────────
@@ -207,6 +209,9 @@ export default function App() {
           total={searchTerm ? totalUnfiltered : entries.length}
           filtered={entries.length}
           onSearch={handleSearch}
+          onOpenResults={() => {
+            if (searchTerm && entries.length > 0) setResultsOpen(true);
+          }}
         />
         <div className="flex-1" />
         <div className="flex items-center gap-2">
@@ -259,6 +264,20 @@ export default function App() {
           />
         </div>
       </div>
+
+      {resultsOpen && (
+        <SearchResultsModal
+          sessions={selectedSessions}
+          search={searchTerm}
+          outputDir={outputDir}
+          wordWrap={wordWrap}
+          onClose={() => setResultsOpen(false)}
+          onGoToDetail={(match) => {
+            setResultsOpen(false);
+            void handleSelect(match);
+          }}
+        />
+      )}
     </div>
   );
 }

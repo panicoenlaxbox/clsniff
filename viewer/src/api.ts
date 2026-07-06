@@ -1,4 +1,4 @@
-import type { Session, EntrySummary, Entry } from "./types";
+import type { Session, EntrySummary, Entry, MatchEntry } from "./types";
 
 export async function fetchSessions(): Promise<{
   sessions: Session[];
@@ -18,6 +18,18 @@ export async function fetchEntries(
   const res = await fetch(`/api/sessions/${encodeURIComponent(sessionName)}/entries${qs}`);
   if (!res.ok) throw new Error(`Failed to fetch entries for ${sessionName}`);
   const data = (await res.json()) as { entries: EntrySummary[] };
+  return data.entries.map((e) => ({ ...e, sessionName }));
+}
+
+export async function fetchMatches(
+  sessionName: string,
+  search: string
+): Promise<MatchEntry[]> {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(sessionName)}/matches?search=${encodeURIComponent(search)}`
+  );
+  if (!res.ok) throw new Error(`Failed to fetch matches for ${sessionName}`);
+  const data = (await res.json()) as { entries: MatchEntry[] };
   return data.entries.map((e) => ({ ...e, sessionName }));
 }
 

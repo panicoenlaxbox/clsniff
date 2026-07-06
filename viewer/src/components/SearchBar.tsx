@@ -5,9 +5,10 @@ interface Props {
   total: number;
   filtered: number;
   onSearch: (term: string) => void;
+  onOpenResults?: () => void;
 }
 
-export default function SearchBar({ total, filtered, onSearch }: Props) {
+export default function SearchBar({ total, filtered, onSearch, onOpenResults }: Props) {
   const [value, setValue] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -46,9 +47,19 @@ export default function SearchBar({ total, filtered, onSearch }: Props) {
           </button>
         )}
       </div>
-      <span className="text-gray-500 dark:text-gray-400 whitespace-nowrap">
-        {hasFilter ? `${filtered} / ${total}` : `${total} entries`}
-      </span>
+      {hasFilter && filtered > 0 ? (
+        <button
+          onClick={onOpenResults}
+          title="View matches"
+          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 whitespace-nowrap cursor-pointer underline decoration-dotted underline-offset-2"
+        >
+          {filtered} / {total}
+        </button>
+      ) : (
+        <span className="text-gray-500 dark:text-gray-400 whitespace-nowrap">
+          {hasFilter ? `${filtered} / ${total}` : `${total} entries`}
+        </span>
+      )}
     </div>
   );
 }
