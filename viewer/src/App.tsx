@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Entry, EntrySummary, Session } from "./types";
 import { fetchEntry, fetchEntries, fetchSessions, fetchLoggingStatus, setLoggingPaused } from "./api";
-import { Sun, Moon, Monitor } from "lucide-react";
+import { Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import SessionSelector from "./components/SessionSelector";
 import SearchBar from "./components/SearchBar";
 import EntryTable from "./components/EntryTable";
@@ -17,6 +17,8 @@ function ThemeIcon({ theme }: { theme: Theme }) {
   return <Monitor size={16} />;
 }
 
+const DEFAULT_LEFT_WIDTH = 40;
+
 export default function App() {
   const { theme, cycle } = useTheme();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -27,7 +29,8 @@ export default function App() {
   const [entry, setEntry] = useState<Entry | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [wordWrap, setWordWrap] = useState(false);
-  const [leftWidth, setLeftWidth] = useState(40);
+  const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [totalUnfiltered, setTotalUnfiltered] = useState(0);
   const [outputDir, setOutputDir] = useState("");
   const [loggingPaused, setLoggingPausedState] = useState(false);
@@ -160,7 +163,7 @@ export default function App() {
       if (!resizing.current || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const pct = ((ev.clientX - rect.left) / rect.width) * 100;
-      setLeftWidth(Math.min(80, Math.max(15, pct)));
+      setLeftWidth(Math.min(70, Math.max(10, pct)));
     };
     const onUp = () => {
       resizing.current = false;
@@ -170,6 +173,8 @@ export default function App() {
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   };
+
+  const resetLeftWidth = () => setLeftWidth(DEFAULT_LEFT_WIDTH);
 
   const handleSearch = useCallback((term: string) => {
     setSearchTerm(term);
@@ -186,6 +191,13 @@ export default function App() {
       {!connected && <DisconnectedOverlay />}
       {/* Header */}
       <header className="flex items-center gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shrink-0">
+        <button
+          onClick={() => setLeftCollapsed((c) => !c)}
+          title={leftCollapsed ? "Expand entries panel" : "Collapse entries panel"}
+          className="p-1 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700 shrink-0"
+        >
+          {leftCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+        </button>
         <SessionSelector
           sessions={sessions}
           selected={selectedSessions}
@@ -212,23 +224,29 @@ export default function App() {
       {/* Body */}
       <div ref={containerRef} className="flex flex-1 overflow-hidden">
         {/* Left pane */}
-        <div
-          className="flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700"
-          style={{ width: `${leftWidth}%` }}
-        >
-          <EntryTable
-            entries={entries}
-            selectedKey={selectedKey}
-            onSelect={(summary) => void handleSelect(summary)}
-            multiSession={selectedSessions.length > 1}
-          />
-        </div>
+        {!leftCollapsed && (
+          <div
+            className="flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700"
+            style={{ width: `${leftWidth}%` }}
+          >
+            <EntryTable
+              entries={entries}
+              selectedKey={selectedKey}
+              onSelect={(summary) => void handleSelect(summary)}
+              multiSession={selectedSessions.length > 1}
+            />
+          </div>
+        )}
 
         {/* Resize handle */}
-        <div
-          onMouseDown={onMouseDown}
-          className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-400 dark:hover:bg-blue-500 cursor-col-resize shrink-0 transition-colors"
-        />
+        {!leftCollapsed && (
+          <div
+            onMouseDown={onMouseDown}
+            onDoubleClick={resetLeftWidth}
+            title="Drag to resize · double-click to reset"
+            className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-400 dark:hover:bg-blue-500 cursor-col-resize shrink-0 transition-colors"
+          />
+        )}
 
         {/* Right pane */}
         <div className="flex flex-1 overflow-hidden">

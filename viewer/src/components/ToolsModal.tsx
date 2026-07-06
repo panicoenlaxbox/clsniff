@@ -70,7 +70,7 @@ export default function ToolsModal({ tools, onClose, wordWrap = false }: Props) 
               <button
                 key={i}
                 onClick={() => setSelected(i)}
-                className={`w-full text-left px-3 py-1.5 font-mono text-sm truncate cursor-pointer transition-colors ${
+                className={`w-full text-left px-3 py-1.5 text-sm truncate cursor-pointer transition-colors ${
                   i === selected
                     ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
                     : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
