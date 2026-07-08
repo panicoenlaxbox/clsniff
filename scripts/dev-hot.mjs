@@ -1,7 +1,9 @@
 // Dev launcher with hot reload for the viewer.
 //
-//   npm run dev:hot              → viewer only, Vite HMR
-//   npm run dev:hot -- <command> → same, plus sniff <command>'s traffic live
+//   npm run dev:hot                        → viewer only, Vite HMR
+//   npm run dev:hot -- <command>           → same, plus sniff <command>'s traffic live
+//   npm run dev:hot -- <opts> -- <command> → same, forwarding <opts> to clsniff
+//                                            (e.g. --configuration clsniff.json)
 //
 // The CLI runs in the foreground with the real TTY so interactive commands
 // work; a multiplexer like `concurrently` would pipe stdin and break the REPL.
@@ -13,8 +15,13 @@ import net from "node:net";
 // Vite proxies /api here, so the CLI's viewer must listen on this port.
 const PORT = 3747;
 
-// Everything after `--` is the command to sniff (optional).
-const command = process.argv.slice(2);
+// Args after `npm run dev:hot --`. An optional inner `--` splits clsniff
+// options (before it) from the command to sniff (after it). With no inner `--`,
+// everything is treated as the command (backward-compatible).
+const passed = process.argv.slice(2);
+const sep = passed.indexOf("--");
+const cliOpts = sep === -1 ? [] : passed.slice(0, sep);
+const command = sep === -1 ? passed : passed.slice(sep + 1);
 const quote = (s) => (/\s/.test(s) ? `"${s}"` : s);
 
 // Single string (not an args array) avoids the shell:true DEP0190 warning.
@@ -23,6 +30,7 @@ const cliCmd = [
   "src/cli.ts",
   "--viewer",
   "--no-open",
+  ...cliOpts.map(quote),
   ...(command.length ? ["--", ...command.map(quote)] : []),
 ].join(" ");
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import type { Entry, EntrySummary } from "../types";
-import { ChevronRight, WrapText, Info, ChevronsUpDown, ChevronsDownUp, RotateCcw } from "lucide-react";
+import { ChevronRight, WrapText, Info, ChevronsUpDown, ChevronsDownUp, AlignJustify } from "lucide-react";
 import { VscVscode } from "react-icons/vsc";
 import HeadersSection from "./HeadersSection";
 import BodyView from "./BodyView";
@@ -176,18 +176,27 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
         ))}
         <div className="flex-1" />
         <div className="flex items-center gap-2">
-          {/* Expand / collapse / reset all (Claude tab only) */}
+          {/* Expand / default / collapse (Claude tab only) */}
           {isClaudeEntry(entry) && tab === "claude" && (
-            <div className="flex items-center gap-1 pr-2 mr-1 border-r border-gray-200 dark:border-gray-700">
-              <button onClick={() => setExpand("open")} title="Expand all" className={iconBtn(expandMode === "open")}>
-                <ChevronsUpDown size={16} />
-              </button>
-              <button onClick={() => setExpand("closed")} title="Collapse all" className={iconBtn(expandMode === "closed")}>
-                <ChevronsDownUp size={16} />
-              </button>
-              <button onClick={() => setExpand("default")} title="Reset to default" className={iconBtn(false)}>
-                <RotateCcw size={15} />
-              </button>
+            <div className="flex items-center mr-1 rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 divide-x divide-gray-200 dark:divide-gray-700">
+              {([
+                ["open", "Expand all", ChevronsUpDown, 16],
+                ["closed", "Collapse all", ChevronsDownUp, 16],
+                ["default", "Reset to default", AlignJustify, 15],
+              ] as const).map(([mode, label, Icon, size]) => (
+                <button
+                  key={mode}
+                  onClick={() => setExpand(mode)}
+                  title={label}
+                  className={`p-1 cursor-pointer transition-colors ${
+                    expandMode === mode
+                      ? "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-950"
+                      : "text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <Icon size={size} />
+                </button>
+              ))}
             </div>
           )}
           {/* Open in VS Code */}

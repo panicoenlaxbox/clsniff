@@ -60,11 +60,32 @@ The `--` separator is required to separate `clsniff` options from the wrapped co
 | `--port <number>` | Port for the local proxy (0 = OS auto-assign) | `0` |
 | `--mask-headers <names>` | Comma-separated header names to redact in JSON output. Can be repeated. | (none) |
 | `--exclude <hosts>` | Comma-separated hosts to bypass interception entirely (NO_PROXY format). Bypassed hosts get a direct TCP tunnel — no MITM, no logging. Can be repeated. Example: `example.com,.datadoghq.com` | (none) |
+| `--exclude-url <patterns>` | Comma-separated URL substrings whose matching requests are intercepted and forwarded as usual but excluded from the JSON log. Unlike `--exclude`, this filters by full URL (host + path + query), so you can drop specific endpoints of a host while still capturing the rest. Can be repeated. Example: `/api/claude_code/,/api/oauth/validate` | (none) |
+| `--configuration <path>` | Path to a JSON file providing defaults for `outputDir`, `name`, `port`, `maskHeaders`, `exclude` and `excludeUrl`. Explicit CLI options take precedence. | (none) |
 | `--install-cert` | Install mitmproxy's CA certificate in the system trust store | (off) |
 | `--viewer` | Start the web-based log viewer | (off) |
 | `--no-open` | Do not auto-open the browser when starting the viewer | (off) |
 
 > `--viewer` includes a Claude tab with enhanced support for parsing and displaying Claude-specific request/response formats, according to https://platform.claude.com/docs/en/api/messages/create
+
+## Configuration file
+
+Instead of passing `--output-dir`, `--name`, `--port`, `--mask-headers`, `--exclude` and `--exclude-url` on every invocation, you can store them in a JSON file and load it with `--configuration <path>`. This is especially handy for a long `exclude`/`excludeUrl` list.
+
+```json
+{
+  "outputDir": "/home/me/captures",
+  "name": "my-session",
+  "port": 8080,
+  "maskHeaders": ["authorization", "x-api-key"],
+  "exclude": ["example.com", ".datadoghq.com"],
+  "excludeUrl": ["/api/claude_code/", "/api/oauth/validate"]
+}
+```
+
+All keys are optional. Any explicit CLI option overrides the value from the file, which in turn overrides the built-in default. Unknown keys are ignored with a warning.
+
+See [`config.json`](config.json) for a ready-made example that keeps Claude Code's `/v1/messages` traffic while filtering out its telemetry and housekeeping endpoints.
 
 ## Examples
 
@@ -83,6 +104,11 @@ clsniff --mask-headers "authorization" -- claude
 clsniff --exclude ".datadoghq.com" -- claude
 ```
 
+**Drop noisy endpoints of a host while keeping the rest:**
+```bash
+clsniff --exclude-url "/api/claude_code/,/api/oauth/validate" -- claude
+```
+
 **Intercept traffic and open the viewer:**
 ```bash
 clsniff --viewer --mask-headers "authorization" -- claude
@@ -96,6 +122,11 @@ clsniff --viewer
 **Start the viewer without auto-opening the browser:**
 ```bash
 clsniff --viewer --no-open -- claude
+```
+
+**Load reusable options from a configuration file:**
+```bash
+clsniff --configuration clsniff.json -- claude
 ```
 
 ## Output format
@@ -201,12 +232,17 @@ git clone https://github.com/panicoenlaxbox/clsniff.git
 cd clsniff
 npm install
 
-# Work on the viewer with hot reload (browse captured sessions)
+# Viewer only
 npm run dev:hot
 
-# Same, but also run a command through the proxy to capture fresh traffic
+# Viewer + sniff a command
 npm run dev:hot -- claude
+
+# Viewer + sniff a command, with clsniff options
+npm run dev:hot -- --configuration config.json -- claude
+
+# CLI only, no viewer
+npm run dev -- -- claude
 ```
 
-Both use Vite's hot module reload, so edits under `viewer/src` show up instantly.
-To exercise the CLI without the viewer, run `npm run dev -- -- <command>`.
+The `dev:hot` commands use Vite's hot module reload, so edits under `viewer/src` show up instantly. Changes to the backend (anything under `src/`, e.g. the API or the CLI) are not hot-reloaded — restart the command to pick them up.

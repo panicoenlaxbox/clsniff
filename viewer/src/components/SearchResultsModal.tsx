@@ -7,6 +7,7 @@ import { fetchMatches } from "../api";
 interface Props {
   sessions: string[];
   search: string;
+  regex: boolean;
   outputDir: string;
   onClose: () => void;
   onGoToDetail: (entry: MatchEntry) => void;
@@ -154,6 +155,7 @@ function ResultPanel({
 export default function SearchResultsModal({
   sessions,
   search,
+  regex,
   outputDir,
   onClose,
   onGoToDetail,
@@ -172,7 +174,7 @@ export default function SearchResultsModal({
     setError(false);
     setActive(-1);
     setCollapsed(new Set());
-    Promise.all(sessions.map((s) => fetchMatches(s, search)))
+    Promise.all(sessions.map((s) => fetchMatches(s, search, regex)))
       .then((results) => {
         if (cancelled) return;
         const merged = results
@@ -186,7 +188,7 @@ export default function SearchResultsModal({
     return () => {
       cancelled = true;
     };
-  }, [sessions, search]);
+  }, [sessions, search, regex]);
 
   // Flat index of every occurrence, in render order, plus per-entry base offsets.
   const { flat, bases, total } = useMemo(() => {

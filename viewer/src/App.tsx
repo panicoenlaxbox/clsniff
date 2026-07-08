@@ -29,6 +29,7 @@ export default function App() {
   const [selectedSummary, setSelectedSummary] = useState<EntrySummary | null>(null);
   const [entry, setEntry] = useState<Entry | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchRegex, setSearchRegex] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
   const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -77,14 +78,14 @@ export default function App() {
   }, [loggingPaused]);
 
   // ── Load entries (with optional server-side search) ─────────────────────────
-  const loadEntries = useCallback(async (sessionNames: string[], search: string) => {
+  const loadEntries = useCallback(async (sessionNames: string[], search: string, regex: boolean) => {
     if (sessionNames.length === 0) {
       setEntries([]);
       return;
     }
     try {
       const results = await Promise.all(
-        sessionNames.map((s) => fetchEntries(s, search || undefined))
+        sessionNames.map((s) => fetchEntries(s, search || undefined, regex))
       );
       const merged = results
         .flat()
@@ -97,11 +98,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    void loadEntries(selectedSessions, searchTerm);
+    void loadEntries(selectedSessions, searchTerm, searchRegex);
     setSelectedKey(null);
     setSelectedSummary(null);
     setEntry(null);
-  }, [selectedSessions, searchTerm, loadEntries]);
+  }, [selectedSessions, searchTerm, searchRegex, loadEntries]);
 
   // ── SSE for live updates (only when not searching) ──────────────────────────
   useEffect(() => {
@@ -121,7 +122,7 @@ export default function App() {
           void loadSessions();
           if (selectedSessions.includes(msg.session)) {
             setTotalUnfiltered((n) => n + 1);
-            void fetchEntries(msg.session, searchTerm || undefined).then((fresh) => {
+            void fetchEntries(msg.session, searchTerm || undefined, searchRegex).then((fresh) => {
               setEntries((prev) => {
                 const others = prev.filter((en) => en.sessionName !== msg.session);
                 return [...others, ...fresh].sort((a, b) =>
@@ -138,7 +139,7 @@ export default function App() {
       }
     };
     return () => es.close();
-  }, [selectedSessions, searchTerm, loadSessions]);
+  }, [selectedSessions, searchTerm, searchRegex, loadSessions]);
 
   // ── Select entry → load full data ───────────────────────────────────────────
   const handleSelect = useCallback(async (summary: EntrySummary) => {
@@ -178,8 +179,9 @@ export default function App() {
 
   const resetLeftWidth = () => setLeftWidth(DEFAULT_LEFT_WIDTH);
 
-  const handleSearch = useCallback((term: string) => {
+  const handleSearch = useCallback((term: string, regex: boolean) => {
     setSearchTerm(term);
+    setSearchRegex(regex);
     setSelectedKey(null);
     setSelectedSummary(null);
     setEntry(null);
@@ -269,6 +271,7 @@ export default function App() {
         <SearchResultsModal
           sessions={selectedSessions}
           search={searchTerm}
+          regex={searchRegex}
           outputDir={outputDir}
           wordWrap={wordWrap}
           onClose={() => setResultsOpen(false)}

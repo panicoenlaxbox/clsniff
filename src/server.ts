@@ -73,6 +73,23 @@ interface MatchEntry extends EntrySummary {
 }
 
 /**
+ * Escape a string so it can be embedded in a RegExp and matched literally.
+ * Used when the client requests a plain (non-regex) search.
+ */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Build the search RegExp from the raw query string, treating it literally
+ * unless `useRegex` is set. Throws if `useRegex` is set and the pattern is
+ * invalid; the caller is expected to handle that (e.g. respond 400).
+ */
+function buildSearchRegex(searchStr: string, useRegex: boolean, flags: string): RegExp {
+  return new RegExp(useRegex ? searchStr : escapeRegExp(searchStr), flags);
+}
+
+/**
  * Find every occurrence of `regex` in `raw` and return, per match, the physical
  * line of the file it falls on, split into { before, match, after }. The line is
  * returned verbatim (no clipping/unescaping) so it mirrors what the raw detail
@@ -219,7 +236,16 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
       typeof req.query["search"] === "string"
         ? req.query["search"].trim()
         : "";
-    const search = searchStr ? new RegExp(searchStr, "im") : null;
+    const useRegex = req.query["regex"] === "1";
+    let search: RegExp | null = null;
+    if (searchStr) {
+      try {
+        search = buildSearchRegex(searchStr, useRegex, "im");
+      } catch {
+        res.status(400).json({ error: "Invalid search pattern" });
+        return;
+      }
+    }
     try {
       const files = fs
         .readdirSync(sessionDir)
@@ -272,9 +298,10 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
       res.json({ entries: [] });
       return;
     }
+    const useRegex = req.query["regex"] === "1";
     let regex: RegExp;
     try {
-      regex = new RegExp(searchStr, "gim");
+      regex = buildSearchRegex(searchStr, useRegex, "gim");
     } catch {
       res.status(400).json({ error: "Invalid search pattern" });
       return;

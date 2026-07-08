@@ -12,9 +12,12 @@ export async function fetchSessions(): Promise<{
 
 export async function fetchEntries(
   sessionName: string,
-  search?: string
+  search?: string,
+  regex = false
 ): Promise<EntrySummary[]> {
-  const qs = search ? `?search=${encodeURIComponent(search)}` : "";
+  const qs = search
+    ? `?search=${encodeURIComponent(search)}${regex ? "&regex=1" : ""}`
+    : "";
   const res = await fetch(`/api/sessions/${encodeURIComponent(sessionName)}/entries${qs}`);
   if (!res.ok) throw new Error(`Failed to fetch entries for ${sessionName}`);
   const data = (await res.json()) as { entries: EntrySummary[] };
@@ -23,10 +26,13 @@ export async function fetchEntries(
 
 export async function fetchMatches(
   sessionName: string,
-  search: string
+  search: string,
+  regex = false
 ): Promise<MatchEntry[]> {
   const res = await fetch(
-    `/api/sessions/${encodeURIComponent(sessionName)}/matches?search=${encodeURIComponent(search)}`
+    `/api/sessions/${encodeURIComponent(sessionName)}/matches?search=${encodeURIComponent(search)}${
+      regex ? "&regex=1" : ""
+    }`
   );
   if (!res.ok) throw new Error(`Failed to fetch matches for ${sessionName}`);
   const data = (await res.json()) as { entries: MatchEntry[] };

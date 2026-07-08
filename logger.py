@@ -18,6 +18,13 @@ if not LOG_FILE and SESSION_DIR:
 _mask_raw = os.environ.get("CLSNIFF_MASK_HEADERS", "")
 MASK_HEADERS = {h.lower() for h in _mask_raw.split(",") if h.strip()}
 
+# URL substrings whose matching requests are intercepted and forwarded as usual
+# but excluded from the JSON log (unlike CLSNIFF host-level bypass).
+try:
+    EXCLUDE_URLS = [p for p in json.loads(os.environ.get("CLSNIFF_EXCLUDE_URLS", "[]")) if p]
+except Exception:
+    EXCLUDE_URLS = []
+
 _counter_lock = threading.Lock()
 _counter = 0
 
@@ -106,6 +113,10 @@ def response(flow: http.HTTPFlow) -> None:
     duration_ms = round((time.time() - start) * 1000, 3)
 
     url = flow.request.pretty_url
+
+    if any(p in url for p in EXCLUDE_URLS):
+        _log_request(flow.request.method, url, flow.response.status_code, "excluded")
+        return
 
     try:
         res_text = flow.response.get_text(strict=False)

@@ -1,0 +1,18 @@
+{
+  "exclude": [
+    "downloads.claude.ai",
+    "platform.claude.com",
+    ".datadoghq.com",
+    "bridge.claudeusercontent.com",
+    ".spaincentral.azurecontainerapps.io"
+  ],
+  "excludeUrl": [
+    "api.anthropic.com/api/eval",
+    "api.anthropic.com/api/claude_code/settings",
+    "api.anthropic.com/api/claude_code/policy_limits",
+    "api.anthropic.com/v1/code/triggers",
+    "api.anthropic.com/api/oauth/validate",
+    "api.anthropic.com/mcp-registry/v0/servers",
+    "api.anthropic.com/api/event_logging/v2/batch"
+  ]
+}

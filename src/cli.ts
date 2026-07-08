@@ -57,6 +57,17 @@ program
     [] as string[]
   )
   .option(
+    "--exclude-url <patterns>",
+    "Comma-separated URL substrings whose matching requests are intercepted but excluded from the JSON log (e.g. /api/claude_code/,/api/oauth/validate). Can be repeated.",
+    (value: string, prev: string[]) =>
+      prev.concat(value.split(",").map((s) => s.trim()).filter(Boolean)),
+    [] as string[]
+  )
+  .option(
+    "--configuration <path>",
+    "Path to a JSON file providing defaults for outputDir, name, port, maskHeaders, exclude and excludeUrls. Explicit CLI options take precedence."
+  )
+  .option(
     "--install-cert",
     "Install mitmproxy CA certificate in the system trust store",
     false
@@ -112,6 +123,118 @@ function installCert(cerPath: string): void {
   }
 }
 
+// Keys that can be provided through the --configuration file.
+interface FileConfiguration {
+  outputDir?: string;
+  name?: string;
+  port?: number;
+  maskHeaders?: string[];
+  exclude?: string[];
+  excludeUrl?: string[];
+}
+
+const CONFIG_KEYS: (keyof FileConfiguration)[] = [
+  "outputDir",
+  "name",
+  "port",
+  "maskHeaders",
+  "exclude",
+  "excludeUrl",
+];
+
+// Reads and validates the configuration file. Throws on any malformed input.
+function loadConfiguration(configPath: string): FileConfiguration {
+  const resolved = path.resolve(configPath);
+
+  let raw: string;
+  try {
+    raw = fs.readFileSync(resolved, "utf-8");
+  } catch (err) {
+    throw new Error(
+      `cannot read configuration file at ${resolved}: ${(err as Error).message}`
+    );
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(
+      `configuration file at ${resolved} is not valid JSON: ${(err as Error).message}`
+    );
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(
+      `configuration file at ${resolved} must contain a JSON object.`
+    );
+  }
+
+  const obj = parsed as Record<string, unknown>;
+
+  for (const key of Object.keys(obj)) {
+    if (!CONFIG_KEYS.includes(key as keyof FileConfiguration)) {
+      process.stderr.write(
+        `[clsniff] warning: ignoring unknown configuration key "${key}".\n`
+      );
+    }
+  }
+
+  const config: FileConfiguration = {};
+
+  const isStringArray = (v: unknown): v is string[] =>
+    Array.isArray(v) && v.every((e) => typeof e === "string");
+
+  if (obj.outputDir !== undefined) {
+    if (typeof obj.outputDir !== "string") {
+      throw new Error(`configuration "outputDir" must be a string.`);
+    }
+    config.outputDir = obj.outputDir;
+  }
+
+  if (obj.name !== undefined) {
+    if (typeof obj.name !== "string") {
+      throw new Error(`configuration "name" must be a string.`);
+    }
+    config.name = obj.name;
+  }
+
+  if (obj.port !== undefined) {
+    if (
+      typeof obj.port !== "number" ||
+      !Number.isInteger(obj.port) ||
+      obj.port < 0 ||
+      obj.port > 65535
+    ) {
+      throw new Error(`configuration "port" must be an integer between 0 and 65535.`);
+    }
+    config.port = obj.port;
+  }
+
+  if (obj.maskHeaders !== undefined) {
+    if (!isStringArray(obj.maskHeaders)) {
+      throw new Error(`configuration "maskHeaders" must be an array of strings.`);
+    }
+    config.maskHeaders = obj.maskHeaders.map((s) => s.trim()).filter(Boolean);
+  }
+
+  if (obj.exclude !== undefined) {
+    if (!isStringArray(obj.exclude)) {
+      throw new Error(`configuration "exclude" must be an array of strings.`);
+    }
+    config.exclude = obj.exclude.map((s) => s.trim()).filter(Boolean);
+  }
+
+  if (obj.excludeUrl !== undefined) {
+    if (!isStringArray(obj.excludeUrl)) {
+      throw new Error(`configuration "excludeUrl" must be an array of strings.`);
+    }
+    config.excludeUrl = obj.excludeUrl.map((s) => s.trim()).filter(Boolean);
+  }
+
+  return config;
+}
+
 async function main(): Promise<void> {
   program.parse(process.argv);
 
@@ -121,10 +244,42 @@ async function main(): Promise<void> {
     name?: string;
     maskHeaders: string[];
     exclude: string[];
+    excludeUrl: string[];
+    configuration?: string;
     installCert: boolean;
     viewer: boolean;
     open: boolean;
   }>();
+
+  // Load the configuration file (if any) and merge it with the CLI options.
+  // Precedence: an explicitly-provided CLI option always wins over the file,
+  // which in turn wins over the built-in default.
+  let fileConfig: FileConfiguration = {};
+  if (opts.configuration) {
+    try {
+      fileConfig = loadConfiguration(opts.configuration);
+    } catch (err) {
+      process.stderr.write(`[clsniff] error: ${(err as Error).message}\n`);
+      process.exit(1);
+    }
+  }
+
+  const resolveOption = <T>(
+    optName: string,
+    cliValue: T,
+    fileValue: T | undefined
+  ): T => {
+    if (program.getOptionValueSource(optName) === "cli") return cliValue;
+    if (fileValue !== undefined) return fileValue;
+    return cliValue;
+  };
+
+  opts.outputDir = resolveOption("outputDir", opts.outputDir, fileConfig.outputDir);
+  opts.name = resolveOption("name", opts.name, fileConfig.name);
+  opts.port = resolveOption("port", opts.port, fileConfig.port);
+  opts.maskHeaders = resolveOption("maskHeaders", opts.maskHeaders, fileConfig.maskHeaders);
+  opts.exclude = resolveOption("exclude", opts.exclude, fileConfig.exclude);
+  opts.excludeUrl = resolveOption("excludeUrl", opts.excludeUrl, fileConfig.excludeUrl);
 
   // Silence all console output from third-party libraries so it doesn't
   // interleave with the child process output (which uses stdio: 'inherit').
@@ -197,6 +352,7 @@ async function main(): Promise<void> {
       sessionDir,
       maskHeaders: opts.maskHeaders,
       excludes: opts.exclude,
+      excludeUrls: opts.excludeUrl,
       logFile: clsniffLogPath,
       onError: (message) => log(`proxy error: ${message}`),
     });

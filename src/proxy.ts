@@ -13,6 +13,8 @@ export interface ProxyOptions {
   maskHeaders: string[];
   /** NO_PROXY-style host entries to bypass (e.g. "localhost", ".example.com"). */
   excludes: string[];
+  /** URL substrings whose matching requests are intercepted but excluded from the JSON log. */
+  excludeUrls: string[];
   /** Path to the clsniff.log file. */
   logFile: string;
   /** Called when mitmdump emits an error after startup. */
@@ -116,6 +118,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     CLSNIFF_SESSION_DIR: options.sessionDir,
     CLSNIFF_LOG_FILE: options.logFile,
     CLSNIFF_MASK_HEADERS: options.maskHeaders.join(","),
+    CLSNIFF_EXCLUDE_URLS: JSON.stringify(options.excludeUrls),
   };
 
   const mitmdump = spawn("mitmdump", args, {
