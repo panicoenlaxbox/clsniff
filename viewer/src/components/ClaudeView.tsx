@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { Entry } from "../types";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Image as ImageIcon } from "lucide-react";
 import {
   parseClaudeRequest,
   reconstructResponse,
@@ -85,7 +85,7 @@ function CollapsibleSection({
           <span className="ml-1 font-normal normal-case text-gray-400 dark:text-gray-500 text-xs">{badge}</span>
         )}
       </button>
-      {open && <div className="px-4 pb-3">{children}</div>}
+      {open && <div className="px-4 pt-3 pb-3">{children}</div>}
     </div>
   );
 }
@@ -95,7 +95,7 @@ function CollapsibleSection({
 function ToolUseBlock({ block, wordWrap }: { block: ClaudeToolUseBlock; wordWrap: boolean }) {
   const [open, setOpen] = useCollapsible(false);
   return (
-    <div className="border border-purple-200 dark:border-purple-800 rounded bg-purple-50/60 dark:bg-purple-950/40 mt-2">
+    <div className="border border-purple-200 dark:border-purple-800 rounded bg-purple-50/60 dark:bg-purple-950/40">
       <button
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-1.5 px-3 py-1.5 cursor-pointer rounded hover:bg-purple-100/60 dark:hover:bg-purple-900/40 text-purple-600 dark:text-purple-400"
@@ -104,6 +104,9 @@ function ToolUseBlock({ block, wordWrap }: { block: ClaudeToolUseBlock; wordWrap
         <span className="text-purple-700 dark:text-purple-400 font-semibold uppercase tracking-wider">
           {block.name}
         </span>
+        {block.id && (
+          <span className="text-purple-400 dark:text-purple-500 text-xs ml-1 font-mono">{block.id.slice(-8)}</span>
+        )}
       </button>
       {open && (
         <div className="px-3 pb-3">
@@ -120,7 +123,7 @@ function ToolResultBlock({ block, wordWrap }: { block: ClaudeToolResultBlock; wo
   const [open, setOpen] = useCollapsible(false);
   const contentItems = Array.isArray(block.content) ? block.content : null;
   return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded bg-gray-50/80 dark:bg-gray-800/60 mt-2">
+    <div className="border border-gray-200 dark:border-gray-700 rounded bg-gray-50/80 dark:bg-gray-800/60">
       <button
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-1.5 px-3 py-1.5 cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
@@ -165,6 +168,7 @@ function ToolResultBlock({ block, wordWrap }: { block: ClaudeToolResultBlock; wo
 
 function ImageBlock({ block }: { block: ClaudeImageBlock }) {
   const src = block.source;
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   let url: string | null = null;
   if (src.type === "base64" && src.data) {
     url = `data:${src.media_type ?? "image/png"};base64,${src.data}`;
@@ -180,13 +184,47 @@ function ImageBlock({ block }: { block: ClaudeImageBlock }) {
     );
   }
 
+  // Open the image full-size in a new tab. Chrome blocks top-level navigation
+  // to data: URLs, so for base64 sources we materialize a Blob and open its
+  // object URL instead; url sources can be opened directly.
+  const openFull = () => {
+    if (src.type === "base64" && src.data) {
+      const bytes = atob(src.data);
+      const arr = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      const blob = new Blob([arr], { type: src.media_type ?? "image/png" });
+      const objUrl = URL.createObjectURL(blob);
+      window.open(objUrl, "_blank", "noopener,noreferrer");
+      // Revoke once the new tab has had time to load it.
+      setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
+    } else if (src.type === "url" && src.url) {
+      window.open(src.url, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  // "image/png" -> "png"; falls back to the full type if there's no subtype.
+  const typeLabel = src.media_type?.split("/")[1] ?? src.media_type;
+  const meta = [typeLabel, dims && `${dims.w}×${dims.h}`].filter(Boolean).join(" · ");
+
   return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded bg-gray-50/60 dark:bg-gray-800/40 p-2 inline-block max-w-full">
-      <img
-        src={url}
-        alt="message image"
-        className="max-w-full max-h-[480px] rounded object-contain"
-      />
+    <div className="border border-gray-200 dark:border-gray-700 rounded bg-gray-50/60 dark:bg-gray-800/40 inline-block max-w-full">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 text-gray-500 dark:text-gray-400">
+        <ImageIcon size={12} className="shrink-0" />
+        <span className="font-semibold uppercase tracking-wider">Image</span>
+        {meta && (
+          <span className="text-xs ml-1 font-mono text-gray-400 dark:text-gray-500">{meta}</span>
+        )}
+      </div>
+      <div className="px-2 pb-2">
+        <img
+          src={url}
+          alt="message image"
+          onClick={openFull}
+          onLoad={(e) => setDims({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          title="Click to open full size in a new tab"
+          className="max-w-full max-h-80 rounded object-contain cursor-zoom-in"
+        />
+      </div>
     </div>
   );
 }
