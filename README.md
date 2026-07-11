@@ -33,12 +33,12 @@ The child process is completely unaware of the interception. Its `stdin`, `stdou
 ## Getting started
 
 ```bash
-# Run without installing
-npx -y clsniff@latest --viewer -- claude
-
-# Or install globally
+# Install globally
 npm install -g clsniff
 clsniff --viewer -- claude
+
+# Or run without installing
+npx -y clsniff@latest --viewer -- claude
 ```
 
 Intercepted requests are saved to `~/.clsniff/` as JSON files, one per request/response pair.
@@ -85,33 +85,18 @@ Instead of passing `--output-dir`, `--name`, `--port`, `--mask-headers`, `--excl
 
 All keys are optional. Any explicit CLI option overrides the value from the file, which in turn overrides the built-in default. Unknown keys are ignored with a warning.
 
-See [`config.json`](config.json) for a ready-made example that keeps Claude Code's `/v1/messages` traffic while filtering out its telemetry and housekeeping endpoints.
+See [`configuration.json`](configuration.json) for a ready-made example that keeps Claude Code's `/v1/messages` traffic while filtering out its telemetry and housekeeping endpoints.
 
 ## Examples
 
-**Intercept all traffic:**
+**Intercept all traffic (everything after `--` is passed straight to the command):**
 ```bash
-clsniff -- claude --dangerously-skip-command
+clsniff -- claude --dangerously-skip-permissions
 ```
 
-**Redact the API key:**
+**Intercept traffic, open the viewer and redact the API key:**
 ```bash
-clsniff --mask-headers "authorization" -- claude
-```
-
-**Bypass telemetry hosts:**
-```bash
-clsniff --exclude ".datadoghq.com" -- claude
-```
-
-**Drop noisy endpoints of a host while keeping the rest:**
-```bash
-clsniff --exclude-url "/api/claude_code/,/api/oauth/validate" -- claude
-```
-
-**Intercept traffic and open the viewer:**
-```bash
-clsniff --viewer --mask-headers "authorization" -- claude
+clsniff --viewer --mask-headers "authorization" -- claude --dangerously-skip-permissions
 ```
 
 **Browse existing sessions (standalone viewer, no command needed):**
@@ -119,14 +104,12 @@ clsniff --viewer --mask-headers "authorization" -- claude
 clsniff --viewer
 ```
 
-**Start the viewer without auto-opening the browser:**
-```bash
-clsniff --viewer --no-open -- claude
-```
+**Use the shared configuration straight from GitHub (PowerShell Core):**
 
-**Load reusable options from a configuration file:**
-```bash
-clsniff --configuration clsniff.json -- claude
+`--configuration` expects a local file path, so download [`configuration.json`](https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json) to a temporary file first and pass it along — no need to clone the repo:
+
+```powershell
+$configuration = New-TemporaryFile; Invoke-RestMethod https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json -OutFile $configuration; npx --yes clsniff@latest --viewer --configuration $configuration -- claude --dangerously-skip-permissions
 ```
 
 ## Output format
@@ -236,13 +219,13 @@ npm install
 npm run dev:hot
 
 # Viewer + sniff a command
-npm run dev:hot -- claude
+npm run dev:hot -- claude --dangerously-skip-permissions
 
 # Viewer + sniff a command, with clsniff options
-npm run dev:hot -- --configuration config.json -- claude
+npm run dev:hot -- --configuration configuration.json -- claude --dangerously-skip-permissions
 
 # CLI only, no viewer
-npm run dev -- -- claude
+npm run dev -- -- claude --dangerously-skip-permissions
 ```
 
 The `dev:hot` commands use Vite's hot module reload, so edits under `viewer/src` show up instantly. Changes to the backend (anything under `src/`, e.g. the API or the CLI) are not hot-reloaded — restart the command to pick them up.
