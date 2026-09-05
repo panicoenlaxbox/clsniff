@@ -414,7 +414,8 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
   });
 
   // SPA fallback — serve index.html for any non-API route
-  app.get("*", (_req, res) => {
+  // ("/*splat" is the Express 5 / path-to-regexp 8 spelling of the old "*")
+  app.get("/*splat", (_req, res) => {
     const indexPath = path.join(viewerDist, "index.html");
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);

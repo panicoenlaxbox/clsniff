@@ -1,6 +1,6 @@
 {
   "name": "clsniff",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Zero-configuration HTTP/HTTPS traffic sniffer for command-line tools like claude",
   "bin": {
     "clsniff": "./dist/cli.js"
@@ -37,14 +37,14 @@
   },
   "dependencies": {
     "commander": "^13.1.0",
-    "express": "^4.21.0"
+    "express": "^5.2.1"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
-    "tsx": "^4.19.0",
+    "tsx": "^4.23.13",
     "typescript": "^5.8.0"
   },
   "engines": {
