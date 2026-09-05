@@ -1,4 +1,20 @@
-import type { Session, EntrySummary, Entry, MatchEntry } from "./types";
+import type { AppInfo, Session, EntrySummary, Entry, MatchEntry } from "./types";
+
+export async function fetchInfo(): Promise<AppInfo> {
+  const res = await fetch("/api/info");
+  if (!res.ok) throw new Error("Failed to fetch info");
+  return res.json() as Promise<AppInfo>;
+}
+
+/** Asks the server to show the output directory (or one session) in the OS file manager. */
+export async function revealInFileManager(session?: string): Promise<void> {
+  const res = await fetch("/api/reveal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(session ? { session } : {}),
+  });
+  if (!res.ok) throw new Error("Failed to open the file manager");
+}
 
 export async function fetchSessions(): Promise<{
   sessions: Session[];

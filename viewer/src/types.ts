@@ -1,3 +1,10 @@
+export interface AppInfo {
+  version: string;
+  platform: string;
+  outputDir: string;
+  activeSession: string | null;
+}
+
 export interface Session {
   name: string;
   entryCount: number;

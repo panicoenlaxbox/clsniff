@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Entry, EntrySummary, Session } from "./types";
 import { fetchEntry, fetchEntries, fetchSessions, fetchLoggingStatus, setLoggingPaused } from "./api";
-import { Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen, Info } from "lucide-react";
 import SessionSelector from "./components/SessionSelector";
 import SearchBar from "./components/SearchBar";
 import SearchResultsModal from "./components/SearchResultsModal";
@@ -9,6 +9,7 @@ import EntryTable from "./components/EntryTable";
 import DetailView from "./components/DetailView";
 import RecordingToggle from "./components/RecordingToggle";
 import DisconnectedOverlay from "./components/DisconnectedOverlay";
+import AboutModal from "./components/AboutModal";
 import { useTheme } from "./hooks/useTheme";
 import type { Theme } from "./hooks/useTheme";
 
@@ -38,6 +39,7 @@ export default function App() {
   const [loggingPaused, setLoggingPausedState] = useState(false);
   const [connected, setConnected] = useState(true);
   const [resultsOpen, setResultsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const resizing = useRef(false);
 
   // ── Load sessions ───────────────────────────────────────────────────────────
@@ -225,6 +227,13 @@ export default function App() {
           >
             <ThemeIcon theme={theme} />
           </button>
+          <button
+            onClick={() => setAboutOpen(true)}
+            title="About clsniff"
+            className="p-1 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700"
+          >
+            <Info size={16} />
+          </button>
         </div>
       </header>
 
@@ -266,6 +275,8 @@ export default function App() {
           />
         </div>
       </div>
+
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
 
       {resultsOpen && (
         <SearchResultsModal

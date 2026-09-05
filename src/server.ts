@@ -2,7 +2,11 @@ import express from "express";
 import * as fs from "fs";
 import * as net from "net";
 import * as path from "path";
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
+
+const { version } = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf-8")
+) as { version: string };
 
 export interface ViewerOptions {
   outputDir: string;
@@ -39,6 +43,18 @@ function openBrowser(url: string): void {
     cmd = `xdg-open "${url}"`;
   }
   exec(cmd);
+}
+
+// Opens a folder in the OS file manager. execFile takes the path as an argv
+// entry instead of a command line, so no shell ever parses it.
+function revealInFileManager(target: string): void {
+  if (process.platform === "win32") {
+    execFile("explorer.exe", [target], () => {});
+  } else if (process.platform === "darwin") {
+    execFile("open", [target], () => {});
+  } else {
+    execFile("xdg-open", [target], () => {});
+  }
 }
 
 interface SessionInfo {
@@ -189,6 +205,34 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
     const dir = path.join(options.outputDir, options.activeSession);
     return fs.existsSync(dir) ? dir : null;
   }
+
+  // GET /api/info
+  app.get("/api/info", (_req, res) => {
+    res.json({
+      version,
+      platform: process.platform,
+      outputDir: options.outputDir,
+      activeSession: options.activeSession ?? null,
+    });
+  });
+
+  // POST /api/reveal - show the output directory, or one session folder,
+  // in the OS file manager. The client picks a target, never a path: anything
+  // reachable from the browser could POST here, so paths are resolved server
+  // side and confined to outputDir.
+  app.post("/api/reveal", (req, res) => {
+    const session = (req.body as { session?: unknown } | undefined)?.session;
+    let target = options.outputDir;
+    if (typeof session === "string" && session) {
+      target = path.join(options.outputDir, path.basename(session));
+    }
+    if (!fs.existsSync(target)) {
+      res.status(404).json({ error: "Path not found" });
+      return;
+    }
+    revealInFileManager(target);
+    res.json({ revealed: target });
+  });
 
   // GET /api/logging/status
   app.get("/api/logging/status", (_req, res) => {
