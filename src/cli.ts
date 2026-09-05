@@ -64,8 +64,8 @@ program
     [] as string[]
   )
   .option(
-    "--configuration <path>",
-    "Path to a JSON file providing defaults for outputDir, name, port, maskHeaders, exclude and excludeUrls. Explicit CLI options take precedence."
+    "--configuration <path-or-url>",
+    "Path or http(s) URL of a JSON file providing defaults for outputDir, name, port, maskHeaders, exclude and excludeUrls. Explicit CLI options take precedence. When omitted, ./clsniff.json or ~/.clsniff/configuration.json is used if present."
   )
   .option(
     "--install-cert",
@@ -142,10 +142,47 @@ const CONFIG_KEYS: (keyof FileConfiguration)[] = [
   "excludeUrl",
 ];
 
-// Reads and validates the configuration file. Throws on any malformed input.
-function loadConfiguration(configPath: string): FileConfiguration {
-  const resolved = path.resolve(configPath);
+// Configuration files loaded automatically when --configuration is omitted,
+// in order of precedence.
+const DEFAULT_CONFIGURATION_PATHS = [
+  path.join(process.cwd(), "clsniff.json"),
+  path.join(os.homedir(), ".clsniff", "configuration.json"),
+];
 
+// Returns the first default configuration file that exists, if any.
+function findDefaultConfiguration(): string | undefined {
+  return DEFAULT_CONFIGURATION_PATHS.find((candidate) => fs.existsSync(candidate));
+}
+
+function isUrl(source: string): boolean {
+  return /^https?:\/\//i.test(source);
+}
+
+async function downloadConfiguration(url: string): Promise<string> {
+  let response: Awaited<ReturnType<typeof fetch>>;
+  try {
+    response = await fetch(url);
+  } catch (err) {
+    throw new Error(
+      `cannot download configuration file from ${url}: ${(err as Error).message}`
+    );
+  }
+  if (!response.ok) {
+    throw new Error(
+      `cannot download configuration file from ${url}: HTTP ${response.status} ${response.statusText}`
+    );
+  }
+  return response.text();
+}
+
+// Reads and validates the configuration, given either a local file path or an
+// http(s) URL. Throws on any malformed input.
+async function loadConfiguration(source: string): Promise<FileConfiguration> {
+  if (isUrl(source)) {
+    return parseConfiguration(await downloadConfiguration(source), source);
+  }
+
+  const resolved = path.resolve(source);
   let raw: string;
   try {
     raw = fs.readFileSync(resolved, "utf-8");
@@ -154,19 +191,23 @@ function loadConfiguration(configPath: string): FileConfiguration {
       `cannot read configuration file at ${resolved}: ${(err as Error).message}`
     );
   }
+  return parseConfiguration(raw, resolved);
+}
 
+// Validates the raw JSON payload. `origin` is only used in error messages.
+function parseConfiguration(raw: string, origin: string): FileConfiguration {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
     throw new Error(
-      `configuration file at ${resolved} is not valid JSON: ${(err as Error).message}`
+      `configuration file at ${origin} is not valid JSON: ${(err as Error).message}`
     );
   }
 
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error(
-      `configuration file at ${resolved} must contain a JSON object.`
+      `configuration file at ${origin} must contain a JSON object.`
     );
   }
 
@@ -255,9 +296,15 @@ async function main(): Promise<void> {
   // Precedence: an explicitly-provided CLI option always wins over the file,
   // which in turn wins over the built-in default.
   let fileConfig: FileConfiguration = {};
-  if (opts.configuration) {
+  const configurationSource = opts.configuration ?? findDefaultConfiguration();
+  if (configurationSource) {
+    if (!opts.configuration) {
+      process.stderr.write(
+        `[clsniff] using configuration from ${configurationSource}\n`
+      );
+    }
     try {
-      fileConfig = loadConfiguration(opts.configuration);
+      fileConfig = await loadConfiguration(configurationSource);
     } catch (err) {
       process.stderr.write(`[clsniff] error: ${(err as Error).message}\n`);
       process.exit(1);

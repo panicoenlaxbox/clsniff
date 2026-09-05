@@ -61,7 +61,7 @@ The `--` separator is required to separate `clsniff` options from the wrapped co
 | `--mask-headers <names>` | Comma-separated header names to redact in JSON output. Can be repeated. | (none) |
 | `--exclude <hosts>` | Comma-separated hosts to bypass interception entirely (NO_PROXY format). Bypassed hosts get a direct TCP tunnel — no MITM, no logging. Can be repeated. Example: `example.com,.datadoghq.com` | (none) |
 | `--exclude-url <patterns>` | Comma-separated URL substrings whose matching requests are intercepted and forwarded as usual but excluded from the JSON log. Unlike `--exclude`, this filters by full URL (host + path + query), so you can drop specific endpoints of a host while still capturing the rest. Can be repeated. Example: `/api/claude_code/,/api/oauth/validate` | (none) |
-| `--configuration <path>` | Path to a JSON file providing defaults for `outputDir`, `name`, `port`, `maskHeaders`, `exclude` and `excludeUrl`. Explicit CLI options take precedence. | (none) |
+| `--configuration <path-or-url>` | Path or `http(s)` URL of a JSON file providing defaults for `outputDir`, `name`, `port`, `maskHeaders`, `exclude` and `excludeUrl`. Explicit CLI options take precedence. | (auto-discovered) |
 | `--install-cert` | Install mitmproxy's CA certificate in the system trust store | (off) |
 | `--viewer` | Start the web-based log viewer | (off) |
 | `--no-open` | Do not auto-open the browser when starting the viewer | (off) |
@@ -70,7 +70,7 @@ The `--` separator is required to separate `clsniff` options from the wrapped co
 
 ## Configuration file
 
-Instead of passing `--output-dir`, `--name`, `--port`, `--mask-headers`, `--exclude` and `--exclude-url` on every invocation, you can store them in a JSON file and load it with `--configuration <path>`. This is especially handy for a long `exclude`/`excludeUrl` list.
+Instead of passing `--output-dir`, `--name`, `--port`, `--mask-headers`, `--exclude` and `--exclude-url` on every invocation, you can store them in a JSON file and load it with `--configuration <path-or-url>`. This is especially handy for a long `exclude`/`excludeUrl` list.
 
 ```json
 {
@@ -86,6 +86,29 @@ Instead of passing `--output-dir`, `--name`, `--port`, `--mask-headers`, `--excl
 All keys are optional. Any explicit CLI option overrides the value from the file, which in turn overrides the built-in default. Unknown keys are ignored with a warning.
 
 See [`configuration.json`](configuration.json) for a ready-made example that keeps Claude Code's `/v1/messages` traffic while filtering out its telemetry and housekeeping endpoints.
+
+### Automatic discovery
+
+When `--configuration` is omitted, `clsniff` looks for a configuration file in this order and loads the first one it finds:
+
+1. `./clsniff.json` (current directory) — for per-project settings
+2. `~/.clsniff/configuration.json` — for your personal defaults
+
+The path being used is printed to `stderr` on startup. If neither file exists, `clsniff` runs with its built-in defaults as before.
+
+Drop your favourite settings in `~/.clsniff/configuration.json` once and every run becomes:
+
+```bash
+clsniff --viewer -- claude
+```
+
+### Remote configuration
+
+`--configuration` also accepts an `http(s)` URL, which is downloaded on every run. Useful for sharing a configuration across a team without committing it to each repo:
+
+```bash
+clsniff --viewer --configuration https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json -- claude
+```
 
 ## Examples
 
@@ -104,12 +127,23 @@ clsniff --viewer --mask-headers "authorization" -- claude --dangerously-skip-per
 clsniff --viewer
 ```
 
-**Use the shared configuration straight from GitHub (PowerShell Core):**
+**Use the shared configuration straight from GitHub:**
 
-`--configuration` expects a local file path, so download [`configuration.json`](https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json) to a temporary file first and pass it along — no need to clone the repo:
+```bash
+npx --yes clsniff@latest --viewer --configuration https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json -- claude --dangerously-skip-permissions
+```
+
+**Install that configuration as your personal default (PowerShell Core), so you never have to pass it again:**
 
 ```powershell
-$configuration = New-TemporaryFile; Invoke-RestMethod https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json -OutFile $configuration; npx --yes clsniff@latest --viewer --configuration $configuration -- claude --dangerously-skip-permissions
+New-Item -ItemType Directory -Force ~/.clsniff | Out-Null
+Invoke-RestMethod https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json -OutFile ~/.clsniff/configuration.json
+```
+
+From then on:
+
+```powershell
+npx --yes clsniff@latest --viewer -- claude --dangerously-skip-permissions
 ```
 
 ## Output format
