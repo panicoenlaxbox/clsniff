@@ -11,7 +11,7 @@ export interface ProxyOptions {
   sessionDir: string;
   /** Header names to redact in the JSON output (case-insensitive). */
   maskHeaders: string[];
-  /** NO_PROXY-style host entries to bypass (e.g. "localhost", ".example.com"). */
+  /** NO_PROXY-style entries to bypass, optionally port-scoped (e.g. ".example.com", "localhost:5000"). */
   excludes: string[];
   /** URL substrings whose matching requests are intercepted but excluded from the JSON log. */
   excludeUrls: string[];
@@ -41,22 +41,49 @@ function findFreePort(): Promise<number> {
   });
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
- * Converts a NO_PROXY-style host entry to a regex pattern suitable for
- * mitmdump's --ignore-hosts option (which uses re.fullmatch against the hostname).
+ * Splits a NO_PROXY-style entry into its host and optional port. Only a colon-free host
+ * can carry a port, so bare IPv6 addresses keep their colons.
  *
  * Examples:
- *   "localhost"              → "localhost"
- *   "127.0.0.1"             → "127\\.0\\.0\\.1"
- *   ".example.com"          → "(.*\\.)?example\\.com"
- *   "api.anthropic.com"     → "api\\.anthropic\\.com"
+ *   "localhost:5000"      → { host: "localhost", port: "5000" }
+ *   "::1"                 → { host: "::1" }
+ *   "[::1]:5000"          → { host: "::1", port: "5000" }
+ */
+export function parseHostEntry(entry: string): { host: string; port?: string } {
+  const bracketed = /^\[(.+)\](?::(\d{1,5}))?$/.exec(entry);
+  if (bracketed) {
+    return { host: bracketed[1], port: bracketed[2] };
+  }
+  const withPort = /^([^:]+):(\d{1,5})$/.exec(entry);
+  if (withPort) {
+    return { host: withPort[1], port: withPort[2] };
+  }
+  return { host: entry };
+}
+
+/**
+ * Converts a NO_PROXY-style entry to a regex pattern for mitmdump's --ignore-hosts.
+ *
+ * mitmdump matches with re.search against candidates that always carry the port
+ * ("host:port", from the peer address, the Host header and the TLS SNI), hence the anchors
+ * and the trailing port: an entry without one matches every port.
+ *
+ * Examples:
+ *   "localhost:5000"      → "^localhost:5000$"
+ *   "127.0.0.1"           → "^127\\.0\\.0\\.1:\\d+$"
+ *   ".example.com"        → "^(.*\\.)?example\\.com:\\d+$"
  */
 function hostEntryToRegex(entry: string): string {
-  if (entry.startsWith(".")) {
-    const escaped = entry.slice(1).replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-    return `(.*\\.)?${escaped}`;
-  }
-  return entry.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  const { host, port } = parseHostEntry(entry);
+  const hostPattern = host.startsWith(".")
+    ? `(.*\\.)?${escapeRegex(host.slice(1))}`
+    : escapeRegex(host);
+  return `^${hostPattern}:${port ?? "\\d+"}$`;
 }
 
 /**
@@ -106,6 +133,12 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     "--listen-port", String(port),
     "-s", loggerPath,
     "--set", "connection_strategy=lazy",
+    // Do not verify upstream certificates. clsniff is a sniffer, not a security boundary:
+    // the child already trusts the proxy CA unconditionally, so verifying the real server
+    // adds nothing and only breaks local endpoints with self-signed certificates (a
+    // development MCP server on https://localhost, for instance), which mitmdump would
+    // otherwise reject with "502 Bad Gateway - Certificate verify failed".
+    "--ssl-insecure",
     "--quiet",
   ];
 
@@ -119,6 +152,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     CLSNIFF_LOG_FILE: options.logFile,
     CLSNIFF_MASK_HEADERS: options.maskHeaders.join(","),
     CLSNIFF_EXCLUDE_URLS: JSON.stringify(options.excludeUrls),
+    CLSNIFF_EXCLUDE_HOSTS: JSON.stringify(options.excludes),
   };
 
   const mitmdump = spawn("mitmdump", args, {

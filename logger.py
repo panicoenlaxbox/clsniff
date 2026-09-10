@@ -25,6 +25,29 @@ try:
 except Exception:
     EXCLUDE_URLS = []
 
+
+def _parse_host_entry(entry: str):
+    """Splits a NO_PROXY-style entry into (host, port), mirroring parseHostEntry in proxy.ts."""
+    bracketed = re.match(r"^\[(.+)\](?::(\d{1,5}))?$", entry)
+    if bracketed:
+        return bracketed.group(1).lower(), bracketed.group(2)
+    with_port = re.match(r"^([^:]+):(\d{1,5})$", entry)
+    if with_port:
+        return with_port.group(1).lower(), with_port.group(2)
+    return entry.lower(), None
+
+
+# Hosts bypassed with --exclude, as (host, port) pairs. mitmdump's --ignore-hosts only
+# ignores TLS connections, so plain HTTP requests still arrive here and are dropped below.
+try:
+    EXCLUDE_HOSTS = [
+        _parse_host_entry(h)
+        for h in json.loads(os.environ.get("CLSNIFF_EXCLUDE_HOSTS", "[]"))
+        if h
+    ]
+except Exception:
+    EXCLUDE_HOSTS = []
+
 _counter_lock = threading.Lock()
 _counter = 0
 
@@ -56,6 +79,35 @@ def _log_request(method: str, url: str, status: int, suffix: str = "") -> None:
         _log(f"{method} {origin}{path_part} {status}{trail}")
     except Exception:
         pass
+
+
+def _is_excluded_host(flow: http.HTTPFlow) -> bool:
+    if not EXCLUDE_HOSTS:
+        return False
+
+    # The entry may name the IP while the client used the hostname, or the other way round.
+    candidates = set()
+    for name in (flow.request.pretty_host, flow.request.host):
+        if name:
+            candidates.add(name.lower())
+    try:
+        peername = flow.server_conn.peername
+        if peername:
+            candidates.add(str(peername[0]).lower())
+    except Exception:
+        pass
+
+    port = flow.request.port
+    for host, entry_port in EXCLUDE_HOSTS:
+        if entry_port is not None and int(entry_port) != port:
+            continue
+        if host.startswith("."):
+            suffix = host[1:]
+            if any(c == suffix or c.endswith(host) for c in candidates):
+                return True
+        elif host in candidates:
+            return True
+    return False
 
 
 def _mask(headers: dict) -> dict:
@@ -116,6 +168,10 @@ def response(flow: http.HTTPFlow) -> None:
 
     if any(p in url for p in EXCLUDE_URLS):
         _log_request(flow.request.method, url, flow.response.status_code, "excluded")
+        return
+
+    if _is_excluded_host(flow):
+        _log_request(flow.request.method, url, flow.response.status_code, "excluded host")
         return
 
     try:

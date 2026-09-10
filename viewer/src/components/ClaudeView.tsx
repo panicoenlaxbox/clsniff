@@ -263,8 +263,15 @@ function renderBlock(
   if (block.type === "tool_result") {
     return <ToolResultBlock key={i} block={block as ClaudeToolResultBlock} wordWrap={wordWrap} />;
   }
-  // thinking blocks are filtered out during reconstruction and never reach here
-  return null;
+  // Read through a widened alias: ClaudeContentBlock only covers the blocks with
+  // dedicated rendering, so anything else has already been narrowed away by now.
+  const type = (block as { type: string }).type;
+  if (type === "thinking" || type === "redacted_thinking") {
+    return null;
+  }
+  // Every other block type (server_tool_use, web_search_tool_result, document…) is shown
+  // as raw JSON, so a type this viewer has no dedicated rendering for is still visible.
+  return <JsonBlock key={i} data={block} wordWrap={wordWrap} />;
 }
 
 function ContentBlocks({
@@ -402,7 +409,16 @@ function ResponseBubble({
         )}
       </button>
       {open && (
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-3 space-y-3">
+          {/* Only present on a refusal: shows the category and explanation behind it. */}
+          {response.stopDetails && (
+            <div>
+              <span className="text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider text-xs">
+                Stop details
+              </span>
+              <JsonBlock data={response.stopDetails} wordWrap={wordWrap} />
+            </div>
+          )}
           <ContentBlocks blocks={response.content} wordWrap={wordWrap} />
         </div>
       )}

@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { startProxy } from "./proxy.js";
+import { parseHostEntry, startProxy } from "./proxy.js";
 import { startViewer } from "./server.js";
 
 const { version } = JSON.parse(
@@ -51,7 +51,7 @@ program
   )
   .option(
     "--exclude <hosts>",
-    "Comma-separated hosts to bypass interception entirely (NO_PROXY format, e.g. localhost,.example.com). Can be repeated.",
+    "Comma-separated hosts to bypass interception entirely (NO_PROXY format, e.g. localhost,.example.com). Append :<port> to bypass a single port only (e.g. localhost:5000). Can be repeated.",
     (value: string, prev: string[]) =>
       prev.concat(value.split(",").map((s) => s.trim()).filter(Boolean)),
     [] as string[]
@@ -439,6 +439,14 @@ async function main(): Promise<void> {
 
   // Environment variables injected into the child process
   const proxyUrl = `http://127.0.0.1:${proxyHandle.port}`;
+  // localhost is not bypassed by default, so local servers (an MCP on 127.0.0.1) are
+  // captured too. NO_PROXY is set even when empty, so an inherited value cannot silently
+  // reintroduce a bypass. Port-scoped entries stay out of it because NO_PROXY port support
+  // varies per client and one that ignored the port would bypass the whole host; those are
+  // enforced by mitmdump's --ignore-hosts and by logger.py instead.
+  const noProxy = opts.exclude
+    .filter((entry) => parseHostEntry(entry).port === undefined)
+    .join(",");
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
     // Standard proxy vars (uppercase and lowercase for maximum compatibility)
@@ -446,9 +454,8 @@ async function main(): Promise<void> {
     HTTPS_PROXY: proxyUrl,
     http_proxy: proxyUrl,
     https_proxy: proxyUrl,
-    // Bypass localhost to avoid the proxy routing traffic to itself
-    NO_PROXY: "localhost,127.0.0.1",
-    no_proxy: "localhost,127.0.0.1",
+    NO_PROXY: noProxy,
+    no_proxy: noProxy,
     // CA trust vars for common runtimes
     NODE_EXTRA_CA_CERTS: proxyHandle.caPath, // Node.js
     REQUESTS_CA_BUNDLE: proxyHandle.caPath,  // Python requests library

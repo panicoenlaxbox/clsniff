@@ -13,7 +13,7 @@ Wrap any command with `clsniff` and every HTTP/HTTPS request it makes will be ca
 
 ## Prerequisites
 
-- **Node.js** 22 or later
+- **Node.js** 22.12 or later
 - **[mitmproxy](https://mitmproxy.org/)** — the proxy engine (`mitmdump` must be in PATH). See the [installation guide](https://docs.mitmproxy.org/stable/overview/installation/) for all available options.
 
 ## How it works
@@ -49,7 +49,11 @@ Intercepted requests are saved to `~/.clsniff/` as JSON files, one per request/r
 clsniff [options] -- <command> [args...]
 ```
 
-The `--` separator is required to separate `clsniff` options from the wrapped command.
+The `--` separator is required to separate `clsniff` options from the wrapped command. Everything after it belongs to the command, its own flags included:
+
+```bash
+clsniff --viewer -- claude --dangerously-skip-permissions
+```
 
 ### Options
 
@@ -59,7 +63,7 @@ The `--` separator is required to separate `clsniff` options from the wrapped co
 | `--name <name>` | Name for the session folder instead of the auto-generated timestamp | (timestamp) |
 | `--port <number>` | Port for the local proxy (0 = OS auto-assign) | `0` |
 | `--mask-headers <names>` | Comma-separated header names to redact in JSON output. Can be repeated. | (none) |
-| `--exclude <hosts>` | Comma-separated hosts to bypass interception entirely (NO_PROXY format). Bypassed hosts get a direct TCP tunnel — no MITM, no logging. Can be repeated. Example: `example.com,.datadoghq.com` | (none) |
+| `--exclude <hosts>` | Comma-separated hosts to bypass interception entirely (NO_PROXY format). Bypassed hosts get a direct TCP tunnel — no MITM, no logging. Can be repeated. See [Writing an `--exclude` entry](#writing-an---exclude-entry). Example: `example.com,.datadoghq.com,localhost:5000` | (none) |
 | `--exclude-url <patterns>` | Comma-separated URL substrings whose matching requests are intercepted and forwarded as usual but excluded from the JSON log. Unlike `--exclude`, this filters by full URL (host + path + query), so you can drop specific endpoints of a host while still capturing the rest. Can be repeated. Example: `/api/claude_code/,/api/oauth/validate` | (none) |
 | `--configuration <path-or-url>` | Path or `http(s)` URL of a JSON file providing defaults for `outputDir`, `name`, `port`, `maskHeaders`, `exclude` and `excludeUrl`. Explicit CLI options take precedence. | (auto-discovered) |
 | `--install-cert` | Install mitmproxy's CA certificate in the system trust store | (off) |
@@ -67,6 +71,14 @@ The `--` separator is required to separate `clsniff` options from the wrapped co
 | `--no-open` | Do not auto-open the browser when starting the viewer | (off) |
 
 > `--viewer` includes a Claude tab with enhanced support for parsing and displaying Claude-specific request/response formats, according to https://platform.claude.com/docs/en/api/messages/create
+
+### Writing an `--exclude` entry
+
+- `example.com` — that host on any port. Subdomains are **not** included.
+- `.example.com` — the host and any subdomain, on any port.
+- `localhost:5000` — that port only; the rest of the host stays captured.
+
+Hosts match by name and by the address they resolve to, so `--exclude 127.0.0.1:5000` also covers a request written as `http://localhost:5000`.
 
 ## Configuration file
 
@@ -78,7 +90,7 @@ Instead of passing `--output-dir`, `--name`, `--port`, `--mask-headers`, `--excl
   "name": "my-session",
   "port": 8080,
   "maskHeaders": ["authorization", "x-api-key"],
-  "exclude": ["example.com", ".datadoghq.com"],
+  "exclude": ["example.com", ".datadoghq.com", "localhost:5000"],
   "excludeUrl": ["/api/claude_code/", "/api/oauth/validate"]
 }
 ```
@@ -96,11 +108,7 @@ When `--configuration` is omitted, `clsniff` looks for a configuration file in t
 
 The path being used is printed to `stderr` on startup. If neither file exists, `clsniff` runs with its built-in defaults as before.
 
-Drop your favourite settings in `~/.clsniff/configuration.json` once and every run becomes:
-
-```bash
-clsniff --viewer -- claude
-```
+Drop your favourite settings in `~/.clsniff/configuration.json` once and you never have to pass them again.
 
 ### Remote configuration
 
@@ -114,12 +122,18 @@ clsniff --viewer --configuration https://raw.githubusercontent.com/panicoenlaxbo
 
 **Intercept all traffic (everything after `--` is passed straight to the command):**
 ```bash
-clsniff -- claude --dangerously-skip-permissions
+clsniff -- claude
 ```
 
 **Intercept traffic, open the viewer and redact the API key:**
 ```bash
-clsniff --viewer --mask-headers "authorization" -- claude --dangerously-skip-permissions
+clsniff --viewer --mask-headers "authorization" -- claude
+```
+
+**Local traffic is captured by default (e.g. an MCP server listening on `http://localhost:5000`). To skip all of it, or just one port:**
+```bash
+clsniff --exclude localhost,127.0.0.1 -- claude
+clsniff --exclude localhost:5000 -- claude
 ```
 
 **Browse existing sessions (standalone viewer, no command needed):**
@@ -130,7 +144,7 @@ clsniff --viewer
 **Use the shared configuration straight from GitHub:**
 
 ```bash
-npx --yes clsniff@latest --viewer --configuration https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json -- claude --dangerously-skip-permissions
+npx --yes clsniff@latest --viewer --configuration https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json -- claude
 ```
 
 **Install that configuration as your personal default (PowerShell Core), so you never have to pass it again:**
@@ -143,7 +157,7 @@ Invoke-RestMethod https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/
 From then on:
 
 ```powershell
-npx --yes clsniff@latest --viewer -- claude --dangerously-skip-permissions
+npx --yes clsniff@latest --viewer -- claude
 ```
 
 ## Output format
@@ -227,6 +241,8 @@ Regardless of system-level trust, `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, and `R
 
 > **Note:** `SSL_CERT_FILE` replaces the system CA bundle for the child process. If you use `--exclude` to bypass certain hosts, those connections reach the real server but will fail TLS verification because the real CAs are no longer trusted in `SSL_CERT_FILE`. In that case, install the cert system-wide (via `--install-cert`) so the system CA bundle is used instead.
 
+> **Note:** `mitmdump` runs with `--ssl-insecure`, so certificates presented by the real upstream servers are not validated. A sniffer is not a security boundary, and this keeps local HTTPS endpoints with self-signed certificates (a development MCP server on `https://localhost`, for instance) working out of the box.
+
 ## Environment variables
 
 `clsniff` injects the following variables into the child process before launching it.
@@ -234,7 +250,7 @@ Regardless of system-level trust, `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, and `R
 **Proxy routing:**
 
 - `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy`, `https_proxy` — set to `http://127.0.0.1:<port>`
-- `NO_PROXY`, `no_proxy` — set to `localhost,127.0.0.1`
+- `NO_PROXY`, `no_proxy` — derived from `--exclude`, and empty by default. Whatever your own environment sets is replaced, so nothing can silently disable interception.
 
 **CA trust:**
 
@@ -253,13 +269,13 @@ npm install
 npm run dev:hot
 
 # Viewer + sniff a command
-npm run dev:hot -- claude --dangerously-skip-permissions
+npm run dev:hot -- claude
 
 # Viewer + sniff a command, with clsniff options
-npm run dev:hot -- --configuration configuration.json -- claude --dangerously-skip-permissions
+npm run dev:hot -- --configuration configuration.json -- claude
 
 # CLI only, no viewer
-npm run dev -- -- claude --dangerously-skip-permissions
+npm run dev -- -- claude
 ```
 
 The `dev:hot` commands use Vite's hot module reload, so edits under `viewer/src` show up instantly. Changes to the backend (anything under `src/`, e.g. the API or the CLI) are not hot-reloaded — restart the command to pick them up.

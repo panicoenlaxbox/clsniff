@@ -83,9 +83,18 @@ interface SSEEvent {
 
 // ── Reconstructed response ────────────────────────────────────────────────────
 
+/** Only sent alongside a "refusal" stop reason. `category` is an open set of values. */
+export interface ClaudeStopDetails {
+  type?: string;
+  category?: string | null;
+  explanation?: string;
+  [key: string]: unknown;
+}
+
 export interface ReconstructedResponse {
   model?: string;
   stopReason?: string;
+  stopDetails?: ClaudeStopDetails;
   content: ClaudeContentBlock[];
   inputTokens?: number;
   outputTokens?: number;
@@ -100,6 +109,11 @@ function totalInputTokens(usage: Record<string, number> | undefined): number | u
   const cacheCreate = usage.cache_creation_input_tokens ?? 0;
   const total = direct + cacheRead + cacheCreate;
   return total > 0 ? total : (usage.input_tokens !== undefined ? 0 : undefined);
+}
+
+function asStopDetails(value: unknown): ClaudeStopDetails | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as ClaudeStopDetails;
 }
 
 export function isClaudeEntry(entry: Entry): boolean {
@@ -139,6 +153,7 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
     return {
       model: typeof b.model === "string" ? b.model : undefined,
       stopReason: typeof b.stop_reason === "string" ? b.stop_reason : undefined,
+      stopDetails: asStopDetails(b.stop_details),
       content: (b.content as ClaudeContentBlock[]).filter(
         (block) => block.type !== "thinking"
       ),
@@ -153,6 +168,7 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
   const jsonBuffers: Record<number, string> = {};
   let model: string | undefined;
   let stopReason: string | undefined;
+  let stopDetails: ClaudeStopDetails | undefined;
   let inputTokens: number | undefined;
   let outputTokens: number | undefined;
 
@@ -174,6 +190,10 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
       const index = d.index as number;
       const cb = d.content_block as Record<string, unknown>;
       const cbType = cb.type as string;
+      if (cbType === "thinking" || cbType === "redacted_thinking") {
+        // Thinking is never shown, so the block is dropped instead of reconstructed.
+        continue;
+      }
       if (cbType === "text") {
         blocks[index] = { type: "text", text: "" };
       } else if (cbType === "tool_use") {
@@ -184,6 +204,12 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
           input: {},
         };
         jsonBuffers[index] = "";
+      } else {
+        // Any other block type (server_tool_use, web_search_tool_result, document…) is
+        // kept as it arrived, so a type this viewer does not know about is still shown.
+        blocks[index] = { ...cb } as unknown as ClaudeContentBlock;
+        // Blocks carrying an `input` receive it through input_json_delta, like tool_use.
+        if ("input" in cb) jsonBuffers[index] = "";
       }
     } else if (type === "content_block_delta") {
       const index = d.index as number;
@@ -194,23 +220,26 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
 
       if (deltaType === "text_delta" && block.type === "text") {
         block.text += (delta.text as string) ?? "";
-      } else if (deltaType === "input_json_delta" && block.type === "tool_use") {
-        jsonBuffers[index] = (jsonBuffers[index] ?? "") + ((delta.partial_json as string) ?? "");
+      } else if (deltaType === "input_json_delta" && jsonBuffers[index] !== undefined) {
+        jsonBuffers[index] += (delta.partial_json as string) ?? "";
       }
       // thinking_delta and signature_delta: ignored — thinking is never shown
     } else if (type === "content_block_stop") {
       const index = d.index as number;
       const block = blocks[index];
-      if (block?.type === "tool_use" && jsonBuffers[index]) {
+      if (block && jsonBuffers[index]) {
+        const withInput = block as ClaudeToolUseBlock;
         try {
-          (block as ClaudeToolUseBlock).input = JSON.parse(jsonBuffers[index]);
+          withInput.input = JSON.parse(jsonBuffers[index]);
         } catch {
-          (block as ClaudeToolUseBlock).input = jsonBuffers[index];
+          withInput.input = jsonBuffers[index];
         }
       }
     } else if (type === "message_delta") {
       const delta = d.delta as Record<string, unknown> | undefined;
       if (delta && typeof delta.stop_reason === "string") stopReason = delta.stop_reason;
+      const details = asStopDetails(delta?.stop_details);
+      if (details) stopDetails = details;
       const usage = d.usage as Record<string, number> | undefined;
       if (usage?.output_tokens !== undefined) outputTokens = usage.output_tokens;
     }
@@ -222,5 +251,5 @@ export function reconstructResponse(body: unknown): ReconstructedResponse | null
     .sort((a, b) => a - b)
     .map((i) => blocks[i]);
 
-  return { model, stopReason, content, inputTokens, outputTokens };
+  return { model, stopReason, stopDetails, content, inputTokens, outputTokens };
 }
