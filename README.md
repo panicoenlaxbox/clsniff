@@ -65,7 +65,7 @@ clsniff --viewer -- claude --dangerously-skip-permissions
 | `--mask-headers <names>` | Comma-separated header names to redact in JSON output. Can be repeated. | (none) |
 | `--exclude <hosts>` | Comma-separated hosts to bypass interception entirely (NO_PROXY format). Bypassed hosts get a direct TCP tunnel — no MITM, no logging. Can be repeated. See [Writing an `--exclude` entry](#writing-an---exclude-entry). Example: `example.com,.datadoghq.com,localhost:5000` | (none) |
 | `--exclude-url <patterns>` | Comma-separated URL substrings whose matching requests are intercepted and forwarded as usual but excluded from the JSON log. Unlike `--exclude`, this filters by full URL (host + path + query), so you can drop specific endpoints of a host while still capturing the rest. Can be repeated. Example: `/api/claude_code/,/api/oauth/validate` | (none) |
-| `--configuration <path-or-url>` | Path or `http(s)` URL of a JSON file providing defaults for `outputDir`, `name`, `port`, `maskHeaders`, `exclude`, `excludeUrl` and `mitmdump`. Explicit CLI options take precedence. | (auto-discovered) |
+| `--configuration <path-or-url>` | Path or `http(s)` URL of a JSON file providing defaults for `outputDir`, `name`, `port`, `maskHeaders`, `exclude`, `excludeUrl` and `mitmdump`. Explicit CLI options take precedence. See [Configuration file](#configuration-file). | (auto-discovered) |
 | `--mitmdump <path>` | Path to the `mitmdump` executable, or to the directory holding it. Only needed when it is not in `PATH` nor in a usual installation directory. | (auto-discovered) |
 | `--install-cert` | Install mitmproxy's CA certificate in the system trust store | (off) |
 | `--viewer` | Start the web-based log viewer | (off) |
