@@ -65,7 +65,11 @@ program
   )
   .option(
     "--configuration <path-or-url>",
-    "Path or http(s) URL of a JSON file providing defaults for outputDir, name, port, maskHeaders, exclude and excludeUrls. Explicit CLI options take precedence. When omitted, ./clsniff.json or ~/.clsniff/configuration.json is used if present."
+    "Path or http(s) URL of a JSON file providing defaults for outputDir, name, port, maskHeaders, exclude, excludeUrl and mitmdump. Explicit CLI options take precedence. When omitted, ./clsniff.json or ~/.clsniff/configuration.json is used if present."
+  )
+  .option(
+    "--mitmdump <path>",
+    "Path to the mitmdump executable. When omitted, clsniff looks it up in PATH and in the usual installation directories."
   )
   .option(
     "--install-cert",
@@ -131,6 +135,7 @@ interface FileConfiguration {
   maskHeaders?: string[];
   exclude?: string[];
   excludeUrl?: string[];
+  mitmdump?: string;
 }
 
 const CONFIG_KEYS: (keyof FileConfiguration)[] = [
@@ -140,6 +145,7 @@ const CONFIG_KEYS: (keyof FileConfiguration)[] = [
   "maskHeaders",
   "exclude",
   "excludeUrl",
+  "mitmdump",
 ];
 
 // Configuration files loaded automatically when --configuration is omitted,
@@ -273,6 +279,13 @@ function parseConfiguration(raw: string, origin: string): FileConfiguration {
     config.excludeUrl = obj.excludeUrl.map((s) => s.trim()).filter(Boolean);
   }
 
+  if (obj.mitmdump !== undefined) {
+    if (typeof obj.mitmdump !== "string") {
+      throw new Error(`configuration "mitmdump" must be a string.`);
+    }
+    config.mitmdump = obj.mitmdump;
+  }
+
   return config;
 }
 
@@ -286,6 +299,7 @@ async function main(): Promise<void> {
     maskHeaders: string[];
     exclude: string[];
     excludeUrl: string[];
+    mitmdump?: string;
     configuration?: string;
     installCert: boolean;
     viewer: boolean;
@@ -327,6 +341,7 @@ async function main(): Promise<void> {
   opts.maskHeaders = resolveOption("maskHeaders", opts.maskHeaders, fileConfig.maskHeaders);
   opts.exclude = resolveOption("exclude", opts.exclude, fileConfig.exclude);
   opts.excludeUrl = resolveOption("excludeUrl", opts.excludeUrl, fileConfig.excludeUrl);
+  opts.mitmdump = resolveOption("mitmdump", opts.mitmdump, fileConfig.mitmdump);
 
   // Silence all console output from third-party libraries so it doesn't
   // interleave with the child process output (which uses stdio: 'inherit').
@@ -398,9 +413,10 @@ async function main(): Promise<void> {
       port: opts.port,
       sessionDir,
       maskHeaders: opts.maskHeaders,
-      excludes: opts.exclude,
-      excludeUrls: opts.excludeUrl,
+      exclude: opts.exclude,
+      excludeUrl: opts.excludeUrl,
       logFile: clsniffLogPath,
+      mitmdumpPath: opts.mitmdump,
       onError: (message) => log(`proxy error: ${message}`),
     });
   } catch (err) {

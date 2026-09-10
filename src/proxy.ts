@@ -12,11 +12,13 @@ export interface ProxyOptions {
   /** Header names to redact in the JSON output (case-insensitive). */
   maskHeaders: string[];
   /** NO_PROXY-style entries to bypass, optionally port-scoped (e.g. ".example.com", "localhost:5000"). */
-  excludes: string[];
+  exclude: string[];
   /** URL substrings whose matching requests are intercepted but excluded from the JSON log. */
-  excludeUrls: string[];
+  excludeUrl: string[];
   /** Path to the clsniff.log file. */
   logFile: string;
+  /** Explicit path to the mitmdump executable. When omitted it is auto-discovered. */
+  mitmdumpPath?: string;
   /** Called when mitmdump emits an error after startup. */
   onError?: (message: string) => void;
 }
@@ -111,6 +113,125 @@ function waitForPort(port: number, timeout = 10000): Promise<void> {
   });
 }
 
+/** Expands a leading "~" so paths coming from the CLI or a configuration file work. */
+function expandHome(target: string): string {
+  return target.startsWith("~")
+    ? path.join(os.homedir(), target.slice(1))
+    : target;
+}
+
+function isFile(candidate: string): boolean {
+  try {
+    return fs.statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** Executable file names to try, honouring Windows executable extensions. */
+function mitmdumpFileNames(): string[] {
+  if (process.platform !== "win32") return ["mitmdump"];
+  const extensions = (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD")
+    .split(";")
+    .map((ext) => ext.trim().toLowerCase())
+    .filter(Boolean);
+  return extensions.map((ext) => `mitmdump${ext}`);
+}
+
+function findMitmdumpIn(directories: string[]): string | undefined {
+  const names = mitmdumpFileNames();
+  for (const directory of directories) {
+    if (!directory) continue;
+    for (const name of names) {
+      const candidate = path.join(expandHome(directory), name);
+      if (isFile(candidate)) return candidate;
+    }
+  }
+  return undefined;
+}
+
+/** Scripts/bin directories of every Python installation found under `root`. */
+function pythonScriptDirectories(root: string): string[] {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const binDir = process.platform === "win32" ? "Scripts" : "bin";
+  return entries
+    .filter((entry) => entry.isDirectory() && /^Python/i.test(entry.name))
+    .map((entry) => path.join(root, entry.name, binDir));
+}
+
+/**
+ * Directories where mitmdump commonly lands when it is not on PATH.
+ *
+ * The Windows installer does not always register itself in PATH, and pip/pipx
+ * installs land in per-user script directories that are not on PATH either.
+ */
+function wellKnownMitmdumpDirectories(): string[] {
+  const home = os.homedir();
+  if (process.platform === "win32") {
+    const localAppData =
+      process.env.LOCALAPPDATA ?? path.join(home, "AppData", "Local");
+    const roamingAppData =
+      process.env.APPDATA ?? path.join(home, "AppData", "Roaming");
+    return [
+      // Windows installer (per-user and machine-wide)
+      path.join(localAppData, "Programs", "mitmproxy", "bin"),
+      ...[process.env.ProgramFiles, process.env["ProgramFiles(x86)"]]
+        .filter((dir): dir is string => Boolean(dir))
+        .map((dir) => path.join(dir, "mitmproxy", "bin")),
+      // pipx and pip --user shims
+      path.join(home, ".local", "bin"),
+      // pip installs into a Python distribution
+      ...pythonScriptDirectories(path.join(localAppData, "Programs", "Python")),
+      ...pythonScriptDirectories(path.join(roamingAppData, "Python")),
+    ];
+  }
+  return [
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/snap/bin",
+    path.join(home, ".local", "bin"),
+    ...pythonScriptDirectories(path.join(home, "Library", "Python")),
+  ];
+}
+
+/**
+ * Resolves the mitmdump executable.
+ *
+ * Order of precedence: the explicit path (CLI option or configuration file),
+ * PATH, and finally the well-known installation directories of each platform.
+ *
+ * @throws when no executable can be found, or when an explicit path is invalid.
+ */
+export function resolveMitmdump(explicitPath?: string): string {
+  if (explicitPath) {
+    const resolved = path.resolve(expandHome(explicitPath));
+    if (isFile(resolved)) return resolved;
+    // A directory is accepted as a convenience: point at it, get the binary inside.
+    const inDirectory = findMitmdumpIn([resolved]);
+    if (inDirectory) return inDirectory;
+    throw new Error(`mitmdump not found at the configured path: ${explicitPath}`);
+  }
+
+  const pathDirectories = (process.env.PATH ?? "").split(path.delimiter);
+  const wellKnownDirectories = wellKnownMitmdumpDirectories();
+  const found =
+    findMitmdumpIn(pathDirectories) ?? findMitmdumpIn(wellKnownDirectories);
+  if (found) return found;
+
+  throw new Error(
+    "mitmdump not found in PATH nor in the usual installation directories.\n" +
+      "  Install it from https://docs.mitmproxy.org/stable/overview/installation/,\n" +
+      "  or point clsniff at it with --mitmdump <path> or the \"mitmdump\" configuration key.\n" +
+      `  Looked in: ${wellKnownDirectories.join(", ")}`
+  );
+}
+
 /**
  * Starts mitmdump as a subprocess and returns a handle to manage it.
  *
@@ -118,6 +239,7 @@ function waitForPort(port: number, timeout = 10000): Promise<void> {
  * The logger.py addon script handles all request/response capture.
  */
 export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
+  const mitmdumpExecutable = resolveMitmdump(options.mitmdumpPath);
   const mitmproxyHome = path.join(os.homedir(), ".mitmproxy");
   const caPath = path.join(mitmproxyHome, "mitmproxy-ca-cert.pem");
   const caIsNew = !fs.existsSync(caPath);
@@ -142,7 +264,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     "--quiet",
   ];
 
-  for (const entry of options.excludes) {
+  for (const entry of options.exclude) {
     args.push("--ignore-hosts", hostEntryToRegex(entry));
   }
 
@@ -151,11 +273,11 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     CLSNIFF_SESSION_DIR: options.sessionDir,
     CLSNIFF_LOG_FILE: options.logFile,
     CLSNIFF_MASK_HEADERS: options.maskHeaders.join(","),
-    CLSNIFF_EXCLUDE_URLS: JSON.stringify(options.excludeUrls),
-    CLSNIFF_EXCLUDE_HOSTS: JSON.stringify(options.excludes),
+    CLSNIFF_EXCLUDE_URL: JSON.stringify(options.excludeUrl),
+    CLSNIFF_EXCLUDE: JSON.stringify(options.exclude),
   };
 
-  const mitmdump = spawn("mitmdump", args, {
+  const mitmdump = spawn(mitmdumpExecutable, args, {
     env,
     stdio: ["ignore", "ignore", "pipe"],
   });
@@ -172,7 +294,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
         settled = true;
         const message =
           (err as NodeJS.ErrnoException).code === "ENOENT"
-            ? "mitmdump not found in PATH. See https://docs.mitmproxy.org/stable/overview/installation/"
+            ? `mitmdump could not be executed at ${mitmdumpExecutable}. See https://docs.mitmproxy.org/stable/overview/installation/`
             : err.message;
         reject(new Error(message));
       } else {

@@ -21,9 +21,9 @@ MASK_HEADERS = {h.lower() for h in _mask_raw.split(",") if h.strip()}
 # URL substrings whose matching requests are intercepted and forwarded as usual
 # but excluded from the JSON log (unlike CLSNIFF host-level bypass).
 try:
-    EXCLUDE_URLS = [p for p in json.loads(os.environ.get("CLSNIFF_EXCLUDE_URLS", "[]")) if p]
+    EXCLUDE_URL = [p for p in json.loads(os.environ.get("CLSNIFF_EXCLUDE_URL", "[]")) if p]
 except Exception:
-    EXCLUDE_URLS = []
+    EXCLUDE_URL = []
 
 
 def _parse_host_entry(entry: str):
@@ -40,13 +40,13 @@ def _parse_host_entry(entry: str):
 # Hosts bypassed with --exclude, as (host, port) pairs. mitmdump's --ignore-hosts only
 # ignores TLS connections, so plain HTTP requests still arrive here and are dropped below.
 try:
-    EXCLUDE_HOSTS = [
+    EXCLUDE = [
         _parse_host_entry(h)
-        for h in json.loads(os.environ.get("CLSNIFF_EXCLUDE_HOSTS", "[]"))
+        for h in json.loads(os.environ.get("CLSNIFF_EXCLUDE", "[]"))
         if h
     ]
 except Exception:
-    EXCLUDE_HOSTS = []
+    EXCLUDE = []
 
 _counter_lock = threading.Lock()
 _counter = 0
@@ -82,7 +82,7 @@ def _log_request(method: str, url: str, status: int, suffix: str = "") -> None:
 
 
 def _is_excluded_host(flow: http.HTTPFlow) -> bool:
-    if not EXCLUDE_HOSTS:
+    if not EXCLUDE:
         return False
 
     # The entry may name the IP while the client used the hostname, or the other way round.
@@ -98,7 +98,7 @@ def _is_excluded_host(flow: http.HTTPFlow) -> bool:
         pass
 
     port = flow.request.port
-    for host, entry_port in EXCLUDE_HOSTS:
+    for host, entry_port in EXCLUDE:
         if entry_port is not None and int(entry_port) != port:
             continue
         if host.startswith("."):
@@ -166,7 +166,7 @@ def response(flow: http.HTTPFlow) -> None:
 
     url = flow.request.pretty_url
 
-    if any(p in url for p in EXCLUDE_URLS):
+    if any(p in url for p in EXCLUDE_URL):
         _log_request(flow.request.method, url, flow.response.status_code, "excluded")
         return
 

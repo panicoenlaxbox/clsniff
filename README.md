@@ -14,7 +14,7 @@ Wrap any command with `clsniff` and every HTTP/HTTPS request it makes will be ca
 ## Prerequisites
 
 - **Node.js** 22.12 or later
-- **[mitmproxy](https://mitmproxy.org/)** — the proxy engine (`mitmdump` must be in PATH). See the [installation guide](https://docs.mitmproxy.org/stable/overview/installation/) for all available options.
+- **[mitmproxy](https://mitmproxy.org/)** — the proxy engine, installed however you like ([installation guide](https://docs.mitmproxy.org/stable/overview/installation/)). `clsniff` looks for its `mitmdump` executable in `PATH` and in the usual installation directories of each platform; if yours lives elsewhere, point at it with `--mitmdump <path>`.
 
 ## How it works
 
@@ -65,7 +65,8 @@ clsniff --viewer -- claude --dangerously-skip-permissions
 | `--mask-headers <names>` | Comma-separated header names to redact in JSON output. Can be repeated. | (none) |
 | `--exclude <hosts>` | Comma-separated hosts to bypass interception entirely (NO_PROXY format). Bypassed hosts get a direct TCP tunnel — no MITM, no logging. Can be repeated. See [Writing an `--exclude` entry](#writing-an---exclude-entry). Example: `example.com,.datadoghq.com,localhost:5000` | (none) |
 | `--exclude-url <patterns>` | Comma-separated URL substrings whose matching requests are intercepted and forwarded as usual but excluded from the JSON log. Unlike `--exclude`, this filters by full URL (host + path + query), so you can drop specific endpoints of a host while still capturing the rest. Can be repeated. Example: `/api/claude_code/,/api/oauth/validate` | (none) |
-| `--configuration <path-or-url>` | Path or `http(s)` URL of a JSON file providing defaults for `outputDir`, `name`, `port`, `maskHeaders`, `exclude` and `excludeUrl`. Explicit CLI options take precedence. | (auto-discovered) |
+| `--configuration <path-or-url>` | Path or `http(s)` URL of a JSON file providing defaults for `outputDir`, `name`, `port`, `maskHeaders`, `exclude`, `excludeUrl` and `mitmdump`. Explicit CLI options take precedence. | (auto-discovered) |
+| `--mitmdump <path>` | Path to the `mitmdump` executable, or to the directory holding it. Only needed when it is not in `PATH` nor in a usual installation directory. | (auto-discovered) |
 | `--install-cert` | Install mitmproxy's CA certificate in the system trust store | (off) |
 | `--viewer` | Start the web-based log viewer | (off) |
 | `--no-open` | Do not auto-open the browser when starting the viewer | (off) |
@@ -82,7 +83,7 @@ Hosts match by name and by the address they resolve to, so `--exclude 127.0.0.1:
 
 ## Configuration file
 
-Instead of passing `--output-dir`, `--name`, `--port`, `--mask-headers`, `--exclude` and `--exclude-url` on every invocation, you can store them in a JSON file and load it with `--configuration <path-or-url>`. This is especially handy for a long `exclude`/`excludeUrl` list.
+Instead of passing `--output-dir`, `--name`, `--port`, `--mask-headers`, `--exclude`, `--exclude-url` and `--mitmdump` on every invocation, you can store them in a JSON file and load it with `--configuration <path-or-url>`. This is especially handy for a long `exclude`/`excludeUrl` list.
 
 ```json
 {
@@ -91,7 +92,8 @@ Instead of passing `--output-dir`, `--name`, `--port`, `--mask-headers`, `--excl
   "port": 8080,
   "maskHeaders": ["authorization", "x-api-key"],
   "exclude": ["example.com", ".datadoghq.com", "localhost:5000"],
-  "excludeUrl": ["/api/claude_code/", "/api/oauth/validate"]
+  "excludeUrl": ["/api/claude_code/", "/api/oauth/validate"],
+  "mitmdump": "~/.local/bin/mitmdump"
 }
 ```
 
@@ -226,6 +228,8 @@ On first run, mitmproxy generates a CA (Certificate Authority) key pair and stor
 ```
 
 These files are generated once and reused across all sessions and tools.
+
+The CA belongs to mitmproxy, not to a particular installation of it, so reinstalling or switching `mitmdump` keeps both the CA and the trust you already granted it.
 
 ### Trusting the CA certificate
 
