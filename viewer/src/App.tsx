@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Entry, EntrySummary, Session } from "./types";
-import { fetchEntry, fetchEntries, fetchSessions, fetchLoggingStatus, setLoggingPaused } from "./api";
+import {
+  fetchEntry,
+  fetchEntries,
+  fetchSessions,
+  fetchLoggingStatus,
+  setLoggingPaused,
+  renameSession,
+} from "./api";
 import { Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen, Info } from "lucide-react";
 import SessionSelector from "./components/SessionSelector";
 import SearchBar from "./components/SearchBar";
@@ -24,6 +31,7 @@ const DEFAULT_LEFT_WIDTH = 40;
 export default function App() {
   const { theme, cycle } = useTheme();
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [activeSession, setActiveSession] = useState<string | null>(null);
   const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
   const [entries, setEntries] = useState<EntrySummary[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -45,13 +53,14 @@ export default function App() {
   // ── Load sessions ───────────────────────────────────────────────────────────
   const loadSessions = useCallback(async () => {
     try {
-      const { sessions: list, activeSession, outputDir: dir } = await fetchSessions();
+      const { sessions: list, activeSession: active, outputDir: dir } = await fetchSessions();
       setOutputDir(dir ?? "");
       setSessions(list);
+      setActiveSession(active);
       setSelectedSessions((prev) => {
         if (prev.length > 0) return prev;
-        if (activeSession && list.some((s) => s.name === activeSession)) {
-          return [activeSession];
+        if (active && list.some((s) => s.name === active)) {
+          return [active];
         }
         if (list.length > 0) return [list[0].name];
         return [];
@@ -78,6 +87,15 @@ export default function App() {
       setLoggingPausedState(!next);
     }
   }, [loggingPaused]);
+
+  // ── Rename a session ────────────────────────────────────────────────────────
+  // Any selection pointing at the old name follows it, so the entries panel keeps
+  // showing the same session under its new name.
+  const handleRenameSession = useCallback(async (from: string, to: string) => {
+    const name = await renameSession(from, to);
+    setSelectedSessions((prev) => prev.map((s) => (s === from ? name : s)));
+    await loadSessions();
+  }, [loadSessions]);
 
   // ── Load entries (with optional server-side search) ─────────────────────────
   const loadEntries = useCallback(async (sessionNames: string[], search: string, regex: boolean) => {
@@ -119,6 +137,8 @@ export default function App() {
           type: string;
           session?: string;
           filename?: string;
+          from?: string;
+          to?: string;
         };
         if (msg.type === "new-entry" && msg.session && msg.filename) {
           void loadSessions();
@@ -133,6 +153,10 @@ export default function App() {
               });
             });
           }
+        } else if (msg.type === "session-renamed" && msg.from && msg.to) {
+          const to = msg.to;
+          setSelectedSessions((prev) => prev.map((s) => (s === msg.from ? to : s)));
+          void loadSessions();
         } else if (msg.type === "new-session") {
           void loadSessions();
         }
@@ -207,7 +231,9 @@ export default function App() {
         <SessionSelector
           sessions={sessions}
           selected={selectedSessions}
+          activeSession={activeSession}
           onChange={setSelectedSessions}
+          onRename={handleRenameSession}
         />
         <SearchBar
           total={searchTerm ? totalUnfiltered : entries.length}

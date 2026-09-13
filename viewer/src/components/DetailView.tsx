@@ -1,7 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import type { Entry, EntrySummary } from "../types";
-import { ChevronRight, WrapText, Info, ChevronsUpDown, ChevronsDownUp, AlignJustify } from "lucide-react";
+import {
+  ChevronRight,
+  WrapText,
+  TableProperties,
+  ChevronsUpDown,
+  ChevronsDownUp,
+  AlignJustify,
+} from "lucide-react";
 import { VscVscode } from "react-icons/vsc";
+import { SiClaude } from "react-icons/si";
 import HeadersSection from "./HeadersSection";
 import BodyView from "./BodyView";
 import ClaudeView from "./ClaudeView";
@@ -165,12 +173,15 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-3 py-2 font-medium cursor-pointer transition-colors border-b-2 -mb-px
+            className={`flex items-center gap-1.5 px-3 py-2 font-medium cursor-pointer transition-colors border-b-2 -mb-px
               ${tab === t
                 ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
                 : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               }`}
           >
+            {/* The Claude mark keeps its brand colour in every tab state; plain orange
+                is already the 4xx status colour elsewhere in the viewer. */}
+            {t === "claude" && <SiClaude size={14} className="text-[#D97757]" />}
             {tabLabels[t]}
           </button>
         ))}
@@ -218,7 +229,7 @@ export default function DetailView({ entry, summary, wordWrap, onToggleWrap, out
           {/* Entry properties */}
           <div className="relative" ref={propsRef}>
             <button onClick={() => setPropsOpen((o) => !o)} title="Entry properties" className={iconBtn(propsOpen)}>
-              <Info size={16} />
+              <TableProperties size={16} />
             </button>
             {propsOpen && (
               <div className="absolute top-full right-0 mt-1 w-96 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20">

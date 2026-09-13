@@ -176,6 +176,9 @@ Each `clsniff` invocation creates a new timestamped folder under `~/.clsniff/` (
 
 `clsniff.log` contains timestamped internal messages (proxy startup, per-request entries, errors).
 
+Use `--name` to replace the timestamp with a name of your own. Already captured sessions can
+also be renamed from the viewer. The session being recorded is the only one that cannot be renamed.
+
 Each JSON file contains one request/response pair:
 
 ```json

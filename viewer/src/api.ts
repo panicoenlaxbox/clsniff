@@ -26,6 +26,23 @@ export async function fetchSessions(): Promise<{
   return res.json() as Promise<{ sessions: Session[]; activeSession: string | null; outputDir: string }>;
 }
 
+/**
+ * Renames a session folder. Returns the resulting name, and throws with the
+ * server-provided reason when the rename is rejected.
+ */
+export async function renameSession(name: string, newName: string): Promise<string> {
+  const res = await fetch(`/api/sessions/${encodeURIComponent(name)}/rename`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: newName }),
+  });
+  const data = (await res.json().catch(() => null)) as
+    | { name?: string; error?: string }
+    | null;
+  if (!res.ok) throw new Error(data?.error ?? "Failed to rename the session");
+  return data?.name ?? newName;
+}
+
 export async function fetchEntries(
   sessionName: string,
   search?: string,

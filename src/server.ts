@@ -61,6 +61,8 @@ interface SessionInfo {
   name: string;
   entryCount: number;
   createdAt: string;
+  /** True when clsniff named the folder itself, false when the name is the user's. */
+  generated: boolean;
 }
 
 interface EntrySummary {
@@ -140,6 +142,52 @@ function extractHunks(raw: string, regex: RegExp): MatchHunk[] {
   return hunks;
 }
 
+// Characters no session folder may contain. Besides the path separators, the
+// Windows-reserved set is rejected on every platform so a session renamed on
+// Linux still copies over to a Windows machine.
+const INVALID_NAME_CHARS = /[<>:"/\\|?*]/;
+const RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+function hasControlChars(name: string): boolean {
+  for (let i = 0; i < name.length; i++) {
+    if (name.charCodeAt(i) < 32) return true;
+  }
+  return false;
+}
+
+/** Returns an error message when `name` cannot be a session folder, or null when it can. */
+function validateSessionName(name: string): string | null {
+  if (!name) return "The name cannot be empty";
+  if (name.length > 120) return "The name is too long (120 characters max)";
+  if (name === "." || name === "..") return "Invalid name";
+  if (INVALID_NAME_CHARS.test(name) || hasControlChars(name)) {
+    return 'The name cannot contain < > : " / \\ | ? *';
+  }
+  if (/[. ]$/.test(name)) return "The name cannot end with a dot or a space";
+  if (RESERVED_NAMES.test(name)) return `"${name}" is a reserved name`;
+  return null;
+}
+
+/**
+ * Whether both paths point at the same directory. On a case-insensitive
+ * filesystem a case-only rename resolves to the existing folder, which must not
+ * be reported as a name collision.
+ */
+function isSameDir(a: string, b: string): boolean {
+  try {
+    const sa = fs.statSync(a);
+    const sb = fs.statSync(b);
+    return sa.dev === sb.dev && sa.ino === sb.ino;
+  } catch {
+    return false;
+  }
+}
+
+// Folder names clsniff generates itself: the ISO timestamp of the run with ":" and
+// "." replaced (see the session name built in cli.ts). Anything else was named by
+// the user, with --name or by renaming the session from the viewer.
+const GENERATED_NAME = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/;
+
 function listSessions(outputDir: string): SessionInfo[] {
   if (!fs.existsSync(outputDir)) return [];
   const entries = fs.readdirSync(outputDir, { withFileTypes: true });
@@ -155,10 +203,22 @@ function listSessions(outputDir: string): SessionInfo[] {
     } catch {
       createdAt = new Date().toISOString();
     }
-    sessions.push({ name: entry.name, entryCount: files.length, createdAt });
+    sessions.push({
+      name: entry.name,
+      entryCount: files.length,
+      createdAt,
+      generated: GENERATED_NAME.test(entry.name),
+    });
   }
-  // Most recent first
-  sessions.sort((a, b) => b.name.localeCompare(a.name));
+  // Named sessions first and alphabetically, since a name carries no date. Generated
+  // ones follow, most recent first: their names are timestamps, so ordering them by
+  // name descending is ordering them chronologically.
+  sessions.sort((a, b) => {
+    if (a.generated !== b.generated) return a.generated ? 1 : -1;
+    return a.generated
+      ? b.name.localeCompare(a.name)
+      : a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
   return sessions;
 }
 
@@ -186,6 +246,15 @@ function loadEntrySummary(
 }
 
 export async function startViewer(options: ViewerOptions): Promise<ViewerHandle> {
+  // The /api/events watcher can only attach to a directory that already exists, so a
+  // viewer opened before the very first capture would never go live. Creating it up
+  // front costs nothing: a capture would create it moments later anyway.
+  try {
+    fs.mkdirSync(options.outputDir, { recursive: true });
+  } catch {
+    // an unwritable output directory still lists and serves nothing, as before
+  }
+
   const envPort = parseInt(process.env["CLSNIFF_SERVER_PORT"] ?? "", 10);
   const port = envPort > 0 ? envPort : await findFreePort();
   const app = express();
@@ -199,6 +268,20 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
   app.use(express.json());
 
   let paused = false;
+
+  // Every open /api/events stream, so a change driven by the API (a rename)
+  // also reaches the clients that did not trigger it.
+  type SseSend = (type: string, data: object) => void;
+  const sseClients = new Set<SseSend>();
+  const broadcast: SseSend = (type, data) => {
+    for (const send of sseClients) {
+      try {
+        send(type, data);
+      } catch {
+        // a dead stream is dropped by its own close handler
+      }
+    }
+  };
 
   function activeSessionDir(): string | null {
     if (!options.activeSession) return null;
@@ -267,6 +350,60 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
+  });
+
+  // POST /api/sessions/:name/rename - rename a session folder. Any session can be
+  // renamed except the one currently being recorded: the addon resolved its output
+  // directory at startup and would keep writing to the old path.
+  app.post("/api/sessions/:name/rename", (req, res) => {
+    const current = path.basename(req.params.name);
+    const raw = (req.body as { name?: unknown } | undefined)?.name;
+    const newName = typeof raw === "string" ? raw.trim() : "";
+
+    const invalid = validateSessionName(newName);
+    if (invalid) {
+      res.status(400).json({ error: invalid });
+      return;
+    }
+
+    const from = path.join(options.outputDir, current);
+    if (!fs.existsSync(from) || !fs.statSync(from).isDirectory()) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+    if (options.activeSession && current === options.activeSession) {
+      res.status(409).json({ error: "The session being recorded cannot be renamed" });
+      return;
+    }
+    if (newName === current) {
+      res.json({ name: newName });
+      return;
+    }
+
+    const to = path.join(options.outputDir, newName);
+    if (fs.existsSync(to) && !isSameDir(from, to)) {
+      res.status(409).json({ error: `A session named "${newName}" already exists` });
+      return;
+    }
+
+    try {
+      fs.renameSync(from, to);
+    } catch (err) {
+      // A folder another clsniff process is recording into holds an open handle on
+      // its clsniff.log, so Windows rejects the rename instead of letting us break
+      // that capture. Report it as a busy folder rather than as a raw errno.
+      const code = (err as NodeJS.ErrnoException).code;
+      const busy = code === "EPERM" || code === "EACCES" || code === "EBUSY";
+      res.status(busy ? 409 : 500).json({
+        error: busy
+          ? "The session folder is in use, possibly by another clsniff run recording into it"
+          : `Could not rename the session: ${String(err)}`,
+      });
+      return;
+    }
+
+    broadcast("session-renamed", { from: current, to: newName });
+    res.json({ name: newName });
   });
 
   // GET /api/sessions/:name/entries?search=term
@@ -417,6 +554,8 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
       res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
     };
 
+    sseClients.add(send);
+
     // Keep-alive ping every 15s
     const ping = setInterval(() => res.write(": ping\n\n"), 15000);
 
@@ -426,8 +565,17 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
 
     if (fs.existsSync(options.outputDir)) {
       try {
+        // Watch the canonical path: on Windows, fs.watch aborts the process when
+        // a directory is renamed under a path given in 8.3 short-name form,
+        // because the events report the long name and no longer match it.
+        let watchRoot = options.outputDir;
+        try {
+          watchRoot = fs.realpathSync.native(options.outputDir);
+        } catch {
+          // keep the configured path when it cannot be resolved
+        }
         watcher = fs.watch(
-          options.outputDir,
+          watchRoot,
           { recursive: true },
           (event, filename) => {
             if (!filename || !filename.endsWith(".json")) return;
@@ -452,6 +600,7 @@ export async function startViewer(options: ViewerOptions): Promise<ViewerHandle>
     }
 
     req.on("close", () => {
+      sseClients.delete(send);
       clearInterval(ping);
       watcher?.close();
     });

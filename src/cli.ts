@@ -289,6 +289,25 @@ function parseConfiguration(raw: string, origin: string): FileConfiguration {
   return config;
 }
 
+/**
+ * Remove the session folder when the run captured nothing. Such a folder holds only
+ * clsniff.log describing a run that produced no data, so keeping it around just piles
+ * up empty sessions in the viewer. Scoped to the folder this process created, so it
+ * can never touch a session another clsniff run is recording into.
+ *
+ * Best effort: mitmdump may still hold the folder on its way out, and failing to tidy
+ * up must never change how clsniff exits.
+ */
+function purgeEmptySession(sessionDir: string): void {
+  try {
+    const files = fs.readdirSync(sessionDir);
+    if (files.some((f) => f.endsWith(".json"))) return;
+    fs.rmSync(sessionDir, { recursive: true, force: true });
+  } catch {
+    // cleaning up is a convenience, never a reason to fail the exit
+  }
+}
+
 async function main(): Promise<void> {
   program.parse(process.argv);
 
@@ -507,8 +526,10 @@ async function main(): Promise<void> {
     log(`failed to start command: ${err.message}`);
     process.stderr.write(`[clsniff] failed to start command: ${err.message}\n`);
     proxyHandle.close();
-    logStream.end();
-    process.exit(1);
+    logStream.end(() => {
+      purgeEmptySession(sessionDir);
+      process.exit(1);
+    });
   });
 
   child.on("exit", (code, signal) => {
@@ -516,6 +537,7 @@ async function main(): Promise<void> {
     viewerHandle?.close();
     log(`child exited with code ${code ?? signal}`);
     logStream.end(() => {
+      purgeEmptySession(sessionDir);
       if (signal) {
         process.kill(process.pid, signal);
       } else {

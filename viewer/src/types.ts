@@ -9,6 +9,8 @@ export interface Session {
   name: string;
   entryCount: number;
   createdAt: string;
+  /** True when clsniff named the folder itself, false when the name is the user's. */
+  generated: boolean;
 }
 
 export interface EntrySummary {
