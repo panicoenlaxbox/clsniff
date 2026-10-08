@@ -5,7 +5,8 @@
     ".datadoghq.com",
     "bridge.claudeusercontent.com",
     ".spaincentral.azurecontainerapps.io",
-    "raw.githubusercontent.com"
+    "raw.githubusercontent.com",
+    "centralus-2.in.applicationinsights.azure.com"
   ],
   "excludeUrl": [
     "api.anthropic.com/api/eval",
@@ -18,6 +19,7 @@
     "api.anthropic.com/api/claude_code_penguin_mode",
     "api.anthropic.com/api/claude_cli/bootstrap",
     "api.anthropic.com/api/claude_code/metrics",
+    "/model_selector/cc",
     "api.github.com/graphql"
   ]
 }
