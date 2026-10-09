@@ -66,6 +66,7 @@ clsniff --viewer -- claude --dangerously-skip-permissions
 | `--exclude <hosts>` | Comma-separated hosts to bypass interception entirely (NO_PROXY format). Bypassed hosts get a direct TCP tunnel — no MITM, no logging. Can be repeated. See [Writing an `--exclude` entry](#writing-an---exclude-entry). Example: `example.com,.datadoghq.com,localhost:5000` | (none) |
 | `--exclude-url <patterns>` | Comma-separated URL substrings whose matching requests are intercepted and forwarded as usual but excluded from the JSON log. Unlike `--exclude`, this filters by full URL (host + path + query), so you can drop specific endpoints of a host while still capturing the rest. Can be repeated. Example: `/api/claude_code/,/api/oauth/validate` | (none) |
 | `--configuration <path-or-url>` | Path or `http(s)` URL of a JSON file providing defaults for `outputDir`, `name`, `port`, `maskHeaders`, `exclude`, `excludeUrl` and `mitmdump`. Explicit CLI options take precedence. See [Configuration file](#configuration-file). | (auto-discovered) |
+| `--no-configuration` | Do not load any configuration file, not even the auto-discovered ones. See [Automatic discovery](#automatic-discovery). | (off) |
 | `--mitmdump <path>` | Path to the `mitmdump` executable, or to the directory holding it. Only needed when it is not in `PATH` nor in a usual installation directory. | (auto-discovered) |
 | `--install-cert` | Install mitmproxy's CA certificate in the system trust store | (off) |
 | `--viewer` | Start the web-based log viewer | (off) |
@@ -99,25 +100,29 @@ Instead of passing `--output-dir`, `--name`, `--port`, `--mask-headers`, `--excl
 
 All keys are optional. Any explicit CLI option overrides the value from the file, which in turn overrides the built-in default. Unknown keys are ignored with a warning.
 
-See [`configuration.json`](configuration.json) for a ready-made example that keeps Claude Code's `/v1/messages` traffic while filtering out its telemetry and housekeeping endpoints.
+See [`clsniff.example.json`](clsniff.example.json) for a ready-made example that keeps Claude Code's `/v1/messages` traffic while filtering out its telemetry and housekeeping endpoints.
 
 ### Automatic discovery
 
-When `--configuration` is omitted, `clsniff` looks for a configuration file in this order and loads the first one it finds:
+When `--configuration` is omitted, `clsniff` loads both of these files, if present, and merges them key by key:
 
-1. `./clsniff.json` (current directory) — for per-project settings
-2. `~/.clsniff/configuration.json` — for your personal defaults
+1. `~/.clsniff/clsniff.json` — for your personal defaults
+2. `./clsniff.json` (current directory) — for per-project settings, overriding your personal defaults
 
-The path being used is printed to `stderr` on startup. If neither file exists, `clsniff` runs with its built-in defaults as before.
+Each key of the per-project file replaces the same key of the personal one; keys it does not define are inherited. Arrays such as `exclude` are replaced as a whole, not concatenated. For example, with `maskHeaders` and `mitmdump` in `~/.clsniff/clsniff.json` and only `exclude` in `./clsniff.json`, all three apply.
 
-Drop your favourite settings in `~/.clsniff/configuration.json` once and you never have to pass them again.
+The paths being used are printed to `stderr` on startup. If neither file exists, `clsniff` runs with its built-in defaults as before. An explicit `--configuration` replaces automatic discovery: only that file is loaded.
+
+Drop your favourite settings in `~/.clsniff/clsniff.json` once and you never have to pass them again.
+
+To skip automatic discovery for a single run and use only the built-in defaults plus your CLI options, pass `--no-configuration`.
 
 ### Remote configuration
 
 `--configuration` also accepts an `http(s)` URL, which is downloaded on every run. Useful for sharing a configuration across a team without committing it to each repo:
 
 ```bash
-clsniff --viewer --configuration https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json -- claude
+clsniff --viewer --configuration https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/clsniff.example.json -- claude
 ```
 
 ## Examples
@@ -146,14 +151,14 @@ clsniff --viewer
 **Use the shared configuration straight from GitHub:**
 
 ```bash
-npx --yes clsniff@latest --viewer --configuration https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json -- claude
+npx --yes clsniff@latest --viewer --configuration https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/clsniff.example.json -- claude
 ```
 
 **Install that configuration as your personal default (PowerShell Core), so you never have to pass it again:**
 
 ```powershell
 New-Item -ItemType Directory -Force ~/.clsniff | Out-Null
-Invoke-RestMethod https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/configuration.json -OutFile ~/.clsniff/configuration.json
+Invoke-RestMethod https://raw.githubusercontent.com/panicoenlaxbox/clsniff/main/clsniff.example.json -OutFile ~/.clsniff/clsniff.json
 ```
 
 From then on:
@@ -279,7 +284,7 @@ npm run dev:hot
 npm run dev:hot -- claude
 
 # Viewer + sniff a command, with clsniff options
-npm run dev:hot -- --configuration configuration.json -- claude
+npm run dev:hot -- --configuration clsniff.example.json -- claude
 
 # CLI only, no viewer
 npm run dev -- -- claude

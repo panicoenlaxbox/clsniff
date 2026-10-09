@@ -65,7 +65,11 @@ program
   )
   .option(
     "--configuration <path-or-url>",
-    "Path or http(s) URL of a JSON file providing defaults for outputDir, name, port, maskHeaders, exclude, excludeUrl and mitmdump. Explicit CLI options take precedence. When omitted, ./clsniff.json or ~/.clsniff/configuration.json is used if present."
+    "Path or http(s) URL of a JSON file providing defaults for outputDir, name, port, maskHeaders, exclude, excludeUrl and mitmdump. Explicit CLI options take precedence. When omitted, ~/.clsniff/clsniff.json and ./clsniff.json are merged if present."
+  )
+  .option(
+    "--no-configuration",
+    "Do not load any configuration file, not even the auto-discovered ~/.clsniff/clsniff.json or ./clsniff.json"
   )
   .option(
     "--mitmdump <path>",
@@ -149,15 +153,19 @@ const CONFIG_KEYS: (keyof FileConfiguration)[] = [
 ];
 
 // Configuration files loaded automatically when --configuration is omitted,
-// in order of precedence.
+// from lowest to highest precedence: the per-project file overrides the
+// personal one key by key.
 const DEFAULT_CONFIGURATION_PATHS = [
+  path.join(os.homedir(), ".clsniff", "clsniff.json"),
   path.join(process.cwd(), "clsniff.json"),
-  path.join(os.homedir(), ".clsniff", "configuration.json"),
 ];
 
-// Returns the first default configuration file that exists, if any.
-function findDefaultConfiguration(): string | undefined {
-  return DEFAULT_CONFIGURATION_PATHS.find((candidate) => fs.existsSync(candidate));
+// Returns the default configuration files that exist, from lowest to highest
+// precedence. Deduplicated in case the current directory is ~/.clsniff.
+function findDefaultConfigurations(): string[] {
+  return [...new Set(DEFAULT_CONFIGURATION_PATHS)].filter((candidate) =>
+    fs.existsSync(candidate)
+  );
 }
 
 function isUrl(source: string): boolean {
@@ -319,25 +327,31 @@ async function main(): Promise<void> {
     exclude: string[];
     excludeUrl: string[];
     mitmdump?: string;
-    configuration?: string;
+    // false when --no-configuration is passed
+    configuration?: string | false;
     installCert: boolean;
     viewer: boolean;
     open: boolean;
   }>();
 
-  // Load the configuration file (if any) and merge it with the CLI options.
-  // Precedence: an explicitly-provided CLI option always wins over the file,
-  // which in turn wins over the built-in default.
+  // Load the configuration files (if any) and merge them with the CLI options.
+  // Precedence: an explicitly-provided CLI option always wins over the files,
+  // which in turn win over the built-in default. An explicit --configuration
+  // replaces auto-discovery; otherwise the discovered files are merged key by
+  // key (arrays are replaced, not concatenated).
   let fileConfig: FileConfiguration = {};
-  const configurationSource = opts.configuration ?? findDefaultConfiguration();
-  if (configurationSource) {
+  const configurationSources =
+    opts.configuration === false
+      ? []
+      : opts.configuration
+        ? [opts.configuration]
+        : findDefaultConfigurations();
+  for (const source of configurationSources) {
     if (!opts.configuration) {
-      process.stderr.write(
-        `[clsniff] using configuration from ${configurationSource}\n`
-      );
+      process.stderr.write(`[clsniff] using configuration from ${source}\n`);
     }
     try {
-      fileConfig = await loadConfiguration(configurationSource);
+      fileConfig = { ...fileConfig, ...(await loadConfiguration(source)) };
     } catch (err) {
       process.stderr.write(`[clsniff] error: ${(err as Error).message}\n`);
       process.exit(1);
